@@ -464,8 +464,9 @@ const GLOSSARIO = [
   {sigla:'HEMOSTASIA COLONO',desc:'Hemostasia de Cólon',                            codigos:['4020231']},
 ];
 const TAXAS_SALA = [
-  {sigla:'TAXA EDA',   desc:'Taxa de Sala EDA — Gastroinn',         codigos:['5799300'],valor:190.92},
-  {sigla:'TAXA POLIPO',desc:'Taxa de Sala Polipectomia — Gastroinn',codigos:['5699812'],valor:155.33},
+  {sigla:'TAXA EDA',    desc:'Taxa de Sala EDA — Gastroinn',          codigos:['5799300'],valor:190.92},
+  {sigla:'TAXA POLIPO', desc:'Taxa de Sala Polipectomia — Gastroinn', codigos:['5699812'],valor:155.33},
+  {sigla:'TAXA COLONO', desc:'Taxa de Sala Colonoscopia — Gastroinn', codigos:['5799301'],valor:331.84},
 ];
 const CODE_MAP={};
 [...GLOSSARIO,...TAXAS_SALA].forEach(g=>g.codigos.forEach(c=>{CODE_MAP[c]=g;}));
