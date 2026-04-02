@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EndoAudit — Sistema de Conferência de Exames</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d1117;--surface:#161b22;--surface2:#1f2937;--border:#2d3748;
+    --accent:#00d4aa;--unimed:#00875a;--unimed-light:#00d4aa22;
+    --outros:#5b6af0;--outros-light:#5b6af022;
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --pago:#00d4aa;--pendente:#ffd166;--glosado:#ff6b6b;--radius:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  header{position:sticky;top:0;z-index:100;padding:16px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(13,17,23,0.97);backdrop-filter:blur(12px);}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--outros));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .logo-text{font-family:'DM Serif Display',serif;font-size:22px;}
+  .logo-text span{color:var(--accent);}
+  .header-right{display:flex;gap:12px;align-items:center;}
+  .stat-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:6px 14px;font-family:'DM Mono',monospace;font-size:12px;}
+  .stat-dot{width:8px;height:8px;border-radius:50%;}
+  .auth-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text);transition:all 0.2s;}
+  .auth-btn:hover{background:var(--border);}
+  .auth-btn.connected{border-color:var(--accent);color:var(--accent);}
+  .sync-btn{display:flex;align-items:center;gap:6px;background:var(--accent);border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:#0d1117;transition:all 0.2s;}
+  .sync-btn:hover{background:#00b894;}
+  .sync-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .nav-tabs{display:flex;padding:0 36px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:71px;z-index:99;overflow-x:auto;}
+  .nav-tab{padding:14px 20px;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--text3);border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap;}
+  .nav-tab:hover{color:var(--text);}
+  .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  main{position:relative;z-index:5;padding:28px 36px;max-width:1400px;margin:0 auto;}
+  .section{display:none;}.section.active{display:block;}
+  .section-title{font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:4px;}
+  .section-desc{color:var(--text3);font-size:12px;margin-bottom:22px;font-family:'DM Mono',monospace;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;}
+  .card-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:4px;}
+  .card-subtitle{font-size:11px;color:var(--text3);margin-bottom:18px;font-family:'DM Mono',monospace;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+  .field-row{display:grid;gap:12px;margin-bottom:12px;}
+  .field-row-2{grid-template-columns:1fr 1fr;}.field-row-1{grid-template-columns:1fr;}
+  label{font-size:10px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text2);}
+  input,select{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 13px;font-family:'Syne',sans-serif;font-size:13px;color:var(--text);transition:border-color 0.2s;outline:none;width:100%;}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,170,0.08);}
+  select option{background:#1f2937;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;}
+  .btn-primary{background:var(--accent);color:#0d1117;width:100%;justify-content:center;margin-top:6px;}
+  .btn-primary:hover{background:#00b894;transform:translateY(-1px);}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .btn-secondary:hover{background:var(--border);}
+  .btn-danger{background:transparent;color:var(--glosado);border:1px solid var(--glosado);padding:4px 9px;font-size:11px;}
+  .btn-danger:hover{background:rgba(255,107,107,0.1);}
+  #toast{position:fixed;bottom:28px;right:28px;background:var(--accent);color:#0d1117;padding:11px 18px;border-radius:8px;font-weight:700;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);max-width:360px;}
+  #toast.show{transform:translateY(0);opacity:1;}
+  .table-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .table-title-block{display:flex;align-items:center;gap:12px;}
+  .table-badge{padding:3px 11px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}
+  .badge-unimed{background:var(--unimed-light);color:var(--unimed);border:1px solid #00875a44;}
+  .badge-outros{background:var(--outros-light);color:var(--outros);border:1px solid #5b6af044;}
+  .filter-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .filter-btn{padding:4px 13px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s;}
+  .fb-all{background:var(--accent);color:#0d1117;border-color:var(--accent);}
+  .fb-pago{background:var(--pago);color:#0d1117;border-color:var(--pago);}
+  .fb-pendente{background:var(--pendente);color:#0d1117;border-color:var(--pendente);}
+  .fb-glosado{background:var(--glosado);color:#fff;border-color:var(--glosado);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead{background:var(--surface2);border-bottom:1px solid var(--border);}
+  th{padding:11px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);white-space:nowrap;}
+  td{padding:11px 14px;border-bottom:1px solid var(--border)55;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.015);}
+  .status-sel{padding:4px 8px;font-size:11px;width:auto;}
+  .tuss-chip{font-family:'DM Mono',monospace;font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--text3);}
+  .taxa-chip{font-family:'DM Mono',monospace;font-size:10px;background:rgba(0,135,90,0.12);border:1px solid #00875a44;border-radius:4px;padding:2px 6px;color:var(--unimed);}
+  .empty-state{text-align:center;padding:44px 20px;color:var(--text3);}
+  .empty-state .icon{font-size:32px;margin-bottom:10px;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+  .stat-label{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+  .stat-value{font-family:'DM Serif Display',serif;font-size:36px;line-height:1;margin-bottom:4px;}
+  .stat-sub{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+  .color-accent{color:var(--accent);}.color-pendente{color:var(--pendente);}.color-glosado{color:var(--glosado);}
+  .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:36px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;}
+  .upload-area:hover,.upload-area.drag-over{border-color:var(--accent);background:rgba(0,212,170,0.04);}
+  .upload-area input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-icon{font-size:34px;margin-bottom:10px;}
+  .upload-area h3{font-size:15px;margin-bottom:6px;}
+  .upload-area p{color:var(--text3);font-size:12px;}
+  .cadastro-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;}
+  .glossario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .gloss-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;}
+  .gloss-sigla{font-size:14px;font-weight:800;color:var(--accent);margin-bottom:4px;}
+  .gloss-desc{font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.5;}
+  .gloss-codes{display:flex;gap:4px;flex-wrap:wrap;}
+  .proc-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:8px;}
+  .proc-chips{display:flex;gap:4px;flex-wrap:wrap;min-width:180px;}
+  .remove-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:8px 10px;cursor:pointer;color:var(--text3);font-size:13px;transition:all 0.15s;}
+  .remove-btn:hover{border-color:var(--glosado);color:var(--glosado);}
+  /* LOGIN SCREEN */
+  .login-screen{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px;text-align:center;max-width:440px;width:90%;}
+  .login-logo{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--outros));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 20px;}
+  .login-title{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:8px;}
+  .login-sub{color:var(--text3);font-size:13px;margin-bottom:32px;font-family:'DM Mono',monospace;}
+  .google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:var(--text);transition:all 0.2s;}
+  .google-btn:hover{background:var(--border);transform:translateY(-1px);}
+  .google-icon{width:20px;height:20px;}
+  .login-note{font-size:11px;color:var(--text3);margin-top:16px;line-height:1.6;}
+  /* SYNC STATUS */
+  .sync-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+  .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);}
+  .sync-dot.ok{background:var(--pago);}
+  .sync-dot.syncing{background:var(--pendente);animation:pulse 1s infinite;}
+  .sync-dot.error{background:var(--glosado);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  @media(max-width:900px){
+    main{padding:14px;}.cadastro-grid{grid-template-columns:1fr;}
+    .stats-row{grid-template-columns:1fr 1fr;}header{padding:12px 16px;}
+    .header-right .stat-pill{display:none;}.nav-tabs{padding:0 8px;}
+    .field-row-2{grid-template-columns:1fr;}.glossario-grid{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🔬</div>
+    <div class="login-title">EndoAudit</div>
+    <div class="login-sub">// Sistema de Conferência de Exames Endoscópicos</div>
+    <button class="google-btn" onclick="iniciarLogin()">
+      <svg class="google-icon" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Entrar com Google
+    </button>
+    <p class="login-note">Seus dados ficam salvos no Google Sheets da sua conta.<br>Acesse de qualquer dispositivo.</p>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔬</div>
+    <div class="logo-text">Endo<span>Audit</span></div>
+  </div>
+  <div class="header-right">
+    <div class="sync-indicator" id="sync-indicator">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Não sincronizado</span>
+    </div>
+    <div class="stat-pill"><div class="stat-dot" style="background:var(--accent)"></div><span id="hdr-total">0 linhas</span></div>
+    <div class="stat-pill"><div class="stat-dot" style="background:var(--pendente)"></div><span id="hdr-pendente">0 pendentes</span></div>
+    <div class="stat-pill"><div class="stat-dot" style="background:var(--glosado)"></div><span id="hdr-glosado">0 glosados</span></div>
+    <button class="sync-btn" id="btn-sync" onclick="syncNow()" disabled>↻ Sincronizar</button>
+    <button class="auth-btn" id="btn-auth" onclick="logout()">Sair</button>
+  </div>
+</header>
+
+<nav class="nav-tabs">
+  <button class="nav-tab active"  onclick="switchTab('cadastro',this)">➕ Cadastro</button>
+  <button class="nav-tab"         onclick="switchTab('unimed',this)">🟢 Unimed</button>
+  <button class="nav-tab"         onclick="switchTab('outros',this)">🔵 Outros Conv.</button>
+  <button class="nav-tab"         onclick="switchTab('upload',this)">📂 Upload Repasse</button>
+  <button class="nav-tab"         onclick="switchTab('resumo',this)">📊 Resumo</button>
+  <button class="nav-tab"         onclick="switchTab('glossario',this)">📖 Glossário TUSS</button>
+</nav>
+
+<main>
+
+<!-- ══ CADASTRO ══ -->
+<div id="sec-cadastro" class="section active">
+  <div class="section-title">Cadastro de Exames</div>
+  <div class="section-desc">// Selecione os procedimentos — os códigos TUSS são preenchidos automaticamente</div>
+  <div class="cadastro-grid">
+    <div class="card">
+      <div class="card-title">Novo Registro</div>
+      <div class="card-subtitle">Siglas: EDA · COLONO · POLIPO EDA · POLIPO COLONO · HEMOSTASIA EDA · HEMOSTASIA COLONO</div>
+      <div class="field"><label>Nome do Paciente</label><input type="text" id="f-nome" placeholder="Nome completo" autocomplete="off"></div>
+      <div class="field-row field-row-2">
+        <div class="field" style="margin-bottom:0"><label>Convênio</label>
+          <select id="f-convenio" onchange="onConvenioChange()">
+            <option value="">Selecione...</option>
+            <option value="Unimed">Unimed</option>
+            <option value="Bradesco Saúde">Bradesco Saúde</option>
+            <option value="Amil">Amil</option>
+            <option value="SulAmérica">SulAmérica</option>
+            <option value="Hapvida">Hapvida</option>
+            <option value="NotreDame">NotreDame</option>
+            <option value="Prevent Senior">Prevent Senior</option>
+            <option value="Porto Seguro">Porto Seguro</option>
+            <option value="Golden Cross">Golden Cross</option>
+            <option value="__outro__">Outro...</option>
+          </select>
+        </div>
+        <div class="field" id="wrap-conv-outro" style="display:none;margin-bottom:0"><label>Nome do Convênio</label><input type="text" id="f-convenio-outro" placeholder="Digite"></div>
+      </div>
+      <div class="field-row field-row-2">
+        <div class="field" style="margin-bottom:0"><label>Data do Exame</label><input type="date" id="f-data"></div>
+        <div class="field" style="margin-bottom:0"><label>Nº Guia / Autorização</label><input type="text" id="f-guia" placeholder="Opcional"></div>
+      </div>
+      <div style="margin:14px 0 6px">
+        <label style="display:block;margin-bottom:8px">Procedimentos Realizados</label>
+        <div id="procs-container"></div>
+        <button type="button" class="btn btn-secondary" onclick="addProcRow()" style="width:100%;justify-content:center;font-size:12px;padding:9px;margin-top:2px">+ Adicionar procedimento</button>
+      </div>
+      <div id="wrap-taxa" style="display:none;margin:12px 0 6px">
+        <label style="display:block;margin-bottom:8px">Taxas de Sala — Gastroinn <span style="color:var(--unimed);font-size:9px">(Unimed)</span></label>
+        <div id="taxas-container"></div>
+        <button type="button" class="btn btn-secondary" onclick="addTaxaRow()" style="width:100%;justify-content:center;font-size:12px;padding:9px;margin-top:2px">+ Adicionar taxa de sala</button>
+      </div>
+      <div class="field" style="margin-top:12px"><label>Observação (opcional)</label><input type="text" id="f-obs" placeholder="Ex: sedação, urgência..."></div>
+      <button class="btn btn-primary" onclick="salvarExame()">✓ Salvar e Sincronizar com Google Sheets</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Últimos Cadastrados</div>
+      <div class="card-subtitle">Registros mais recentes</div>
+      <div id="recentes-list"><div class="empty-state"><div class="icon">📋</div><p>Nenhum exame ainda</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UNIMED ══ -->
+<div id="sec-unimed" class="section">
+  <div class="table-header">
+    <div class="table-title-block">
+      <div class="section-title" style="margin-bottom:0">Tabela Unimed</div>
+      <span class="table-badge badge-unimed" id="count-unimed">0 linhas</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Buscar paciente..." oninput="renderTabela('unimed')" id="search-unimed" style="width:180px;padding:8px 12px;font-size:12px">
+      <select id="mes-unimed" onchange="renderTabela('unimed')" style="width:auto;padding:8px 11px;font-size:12px"><option value="">Todos os meses</option></select>
+      <button class="btn btn-secondary" onclick="exportCSV('unimed')" style="padding:8px 13px;font-size:11px">⬇ CSV</button>
+    </div>
+  </div>
+  <div class="filter-bar" id="filter-bar-unimed">
+    <button class="filter-btn fb-all" onclick="setFilter('unimed','todos',this)">Todos</button>
+    <button class="filter-btn" onclick="setFilter('unimed','Aguardando',this)">⏳ Aguardando</button>
+    <button class="filter-btn" onclick="setFilter('unimed','Pago',this)">✓ Pagos</button>
+    <button class="filter-btn" onclick="setFilter('unimed','Pendente',this)">⚠ Pendentes</button>
+    <button class="filter-btn" onclick="setFilter('unimed','Glosado',this)">✕ Glosados</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paciente</th><th>Data</th><th>Procedimento</th><th>Cód. TUSS</th><th>Tipo</th><th>Guia</th><th>Status</th><th>Obs</th><th></th></tr></thead>
+    <tbody id="tbody-unimed"></tbody>
+  </table></div>
+</div>
+
+<!-- ══ OUTROS ══ -->
+<div id="sec-outros" class="section">
+  <div class="table-header">
+    <div class="table-title-block">
+      <div class="section-title" style="margin-bottom:0">Outros Convênios</div>
+      <span class="table-badge badge-outros" id="count-outros">0 linhas</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Buscar paciente..." oninput="renderTabela('outros')" id="search-outros" style="width:180px;padding:8px 12px;font-size:12px">
+      <select id="mes-outros" onchange="renderTabela('outros')" style="width:auto;padding:8px 11px;font-size:12px"><option value="">Todos os meses</option></select>
+      <button class="btn btn-secondary" onclick="exportCSV('outros')" style="padding:8px 13px;font-size:11px">⬇ CSV</button>
+    </div>
+  </div>
+  <div class="filter-bar" id="filter-bar-outros">
+    <button class="filter-btn fb-all" onclick="setFilter('outros','todos',this)">Todos</button>
+    <button class="filter-btn" onclick="setFilter('outros','Aguardando',this)">⏳ Aguardando</button>
+    <button class="filter-btn" onclick="setFilter('outros','Pago',this)">✓ Pagos</button>
+    <button class="filter-btn" onclick="setFilter('outros','Pendente',this)">⚠ Pendentes</button>
+    <button class="filter-btn" onclick="setFilter('outros','Glosado',this)">✕ Glosados</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paciente</th><th>Convênio</th><th>Data</th><th>Procedimento</th><th>Cód. TUSS</th><th>Guia</th><th>Status</th><th>Obs</th><th></th></tr></thead>
+    <tbody id="tbody-outros"></tbody>
+  </table></div>
+</div>
+
+<!-- ══ UPLOAD ══ -->
+<div id="sec-upload" class="section">
+  <div class="section-title">Upload de Repasse</div>
+  <div class="section-desc">// Cruzamento por: nome do paciente + data + código TUSS</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px">
+    <div class="card">
+      <div class="card-title">📄 Arquivo CSV</div>
+      <div class="card-subtitle">Colunas: nome · data · codigo (TUSS)</div>
+      <div class="upload-area" id="drop-csv"><input type="file" accept=".csv,.txt" onchange="handleCSV(event)">
+        <div class="upload-icon">📊</div><h3>Arraste ou clique</h3><p>.CSV exportado do sistema do convênio</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Arquivo PDF</div>
+      <div class="card-subtitle">Extração automática de texto</div>
+      <div class="upload-area" id="drop-pdf"><input type="file" accept=".pdf" onchange="handlePDF(event)">
+        <div class="upload-icon">📑</div><h3>Arraste ou clique</h3><p>.PDF do demonstrativo de repasse</p>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="upload-resultado" style="display:none;margin-bottom:18px">
+    <div class="card-title">Resultado do Cruzamento</div>
+    <div class="card-subtitle" id="upload-meta"></div>
+    <div id="upload-log" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.1"></div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="font-size:15px;margin-bottom:12px">ℹ️ Como funciona o cruzamento</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.9">
+      <p>Cada linha do repasse é cruzada com os exames cadastrados usando <strong>nome + data + código TUSS</strong>.</p>
+      <p style="margin-top:8px"><strong>Colunas aceitas no CSV:</strong></p>
+      <p>Nome: <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">nome</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">paciente</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">beneficiário</code></p>
+      <p>Data: <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">data</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">data_exame</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">competência</code></p>
+      <p>TUSS: <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">codigo</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">tuss</code> / <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">procedimento</code></p>
+      <p style="margin-top:8px">Após o cruzamento, os status são atualizados automaticamente no Google Sheets.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESUMO ══ -->
+<div id="sec-resumo" class="section">
+  <div class="section-title">Resumo Geral</div>
+  <div class="section-desc">// Visão consolidada da produção médica</div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Total de Linhas</div><div class="stat-value color-accent" id="res-total">0</div><div class="stat-sub">todos os convênios</div></div>
+    <div class="stat-card"><div class="stat-label">Pagos</div><div class="stat-value color-accent" id="res-pagos">0</div><div class="stat-sub" id="res-pagos-pct">—</div></div>
+    <div class="stat-card"><div class="stat-label">Pendentes</div><div class="stat-value color-pendente" id="res-pendentes">0</div><div class="stat-sub" id="res-pend-pct">—</div></div>
+    <div class="stat-card"><div class="stat-label">Glosados</div><div class="stat-value color-glosado" id="res-glosados">0</div><div class="stat-sub" id="res-glos-pct">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+    <div class="card"><div class="card-title" style="font-size:15px;margin-bottom:14px">🟢 Unimed</div><div id="res-unimed-detail" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2"></div></div>
+    <div class="card"><div class="card-title" style="font-size:15px;margin-bottom:14px">🔵 Outros Convênios</div><div id="res-outros-detail" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title" style="font-size:15px;margin-bottom:14px">Por Procedimento / Sigla</div>
+    <div id="res-por-proc" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2"></div>
+  </div>
+  <div style="text-align:right">
+    <button class="btn btn-danger" onclick="limparTudo()" style="font-size:12px;padding:9px 18px">🗑 Limpar todos os dados</button>
+  </div>
+</div>
+
+<!-- ══ GLOSSÁRIO ══ -->
+<div id="sec-glossario" class="section">
+  <div class="section-title">Glossário TUSS</div>
+  <div class="section-desc">// Siglas, procedimentos e códigos configurados no sistema</div>
+  <div class="glossario-grid" id="glossario-grid"></div>
+</div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIG GOOGLE
+// ══════════════════════════════════════════════════════════
+const CLIENT_ID     = '807661980753-umlo6aduashrntqa7ks9rjgca6vge926.apps.googleusercontent.com';
+const SPREADSHEET_ID= '1rM9suZU4KAWGcLTXq3X5Rrv6oPPRPclb8kZ6s0FAaes';
+const SCOPES        = 'https://www.googleapis.com/auth/spreadsheets';
+const ABA_UNIMED    = 'Unimed';
+const ABA_OUTROS    = 'Outros Convênios';
+const ABA_CONFIG    = 'Config';
+const HEADER_UNIMED = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
+const HEADER_OUTROS = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
+
+// ══════════════════════════════════════════════════════════
+// GLOSSÁRIO TUSS
+// ══════════════════════════════════════════════════════════
+const GLOSSARIO = [
+  {sigla:'EDA',             desc:'Endoscopia Digestiva Alta',                       codigos:['4020261','4020112','4020203']},
+  {sigla:'COLONO',          desc:'Colonoscopia',                                    codigos:['4020266','4020265','4020108']},
+  {sigla:'POLIPO EDA',      desc:'Polipectomia EDA',                                codigos:['4020255']},
+  {sigla:'POLIPO COLONO',   desc:'Polipectomia Colonoscopia',                       codigos:['4020254']},
+  {sigla:'HEMOSTASIA EDA',  desc:'Hemostasia Mecânica Esôfago/Estômago/Duodeno',   codigos:['4020229']},
+  {sigla:'HEMOSTASIA COLONO',desc:'Hemostasia de Cólon',                            codigos:['4020231']},
+];
+const TAXAS_SALA = [
+  {sigla:'TAXA EDA',   desc:'Taxa de Sala EDA — Gastroinn',         codigos:['5799300'],valor:190.92},
+  {sigla:'TAXA POLIPO',desc:'Taxa de Sala Polipectomia — Gastroinn',codigos:['5699812'],valor:155.33},
+];
+const CODE_MAP={};
+[...GLOSSARIO,...TAXAS_SALA].forEach(g=>g.codigos.forEach(c=>{CODE_MAP[c]=g;}));
+
+// ══════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════
+let exames = [];
+let accessToken = null;
+let tokenExpiry  = 0;
+let filters = {unimed:'todos',outros:'todos'};
+let procRowId=0, taxaRowId=0;
+let syncTimeout=null;
+
+// ══════════════════════════════════════════════════════════
+// GOOGLE AUTH
+// ══════════════════════════════════════════════════════════
+function iniciarLogin() {
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: location.href.split('?')[0].split('#')[0],
+    response_type: 'token',
+    scope: SCOPES,
+    prompt: 'select_account',
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+}
+
+function logout() {
+  accessToken=null; tokenExpiry=0;
+  sessionStorage.removeItem('ea_token');
+  sessionStorage.removeItem('ea_expiry');
+  location.hash='';
+  document.getElementById('login-screen').style.display='flex';
+  setSyncStatus('idle');
+}
+
+function checarToken() {
+  // 1. hash da URL (retorno OAuth)
+  const hash = location.hash.substring(1);
+  if (hash) {
+    const p = new URLSearchParams(hash);
+    const t = p.get('access_token');
+    const e = p.get('expires_in');
+    if (t) {
+      accessToken  = t;
+      tokenExpiry  = Date.now() + (parseInt(e||3600)-60)*1000;
+      sessionStorage.setItem('ea_token', t);
+      sessionStorage.setItem('ea_expiry', tokenExpiry);
+      history.replaceState(null,'',location.pathname);
+    }
+  }
+  // 2. sessão salva
+  if (!accessToken) {
+    const st = sessionStorage.getItem('ea_token');
+    const se = parseInt(sessionStorage.getItem('ea_expiry')||'0');
+    if (st && Date.now() < se) { accessToken=st; tokenExpiry=se; }
+  }
+  if (accessToken) {
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('btn-sync').disabled=false;
+    setSyncStatus('ok','Conectado');
+    carregarDados();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SHEETS API — helpers
+// ══════════════════════════════════════════════════════════
+async function sheetsGet(range) {
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`;
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+accessToken}});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sheetsAppend(aba, rows) {
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(aba+'!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sheetsBatchUpdate(data) {
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+  const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function garantirAbas() {
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`;
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+accessToken}});
+  const info=await r.json();
+  const existentes=(info.sheets||[]).map(s=>s.properties.title);
+  const requests=[];
+  for(const aba of [ABA_UNIMED,ABA_OUTROS,ABA_CONFIG]) {
+    if(!existentes.includes(aba)) requests.push({addSheet:{properties:{title:aba}}});
+  }
+  if(requests.length){
+    await fetch(`${url}:batchUpdate`,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests})});
+  }
+  // Garantir cabeçalhos
+  await sheetsBatchUpdate([
+    {range:`${ABA_UNIMED}!A1`,values:[HEADER_UNIMED]},
+    {range:`${ABA_OUTROS}!A1`,values:[HEADER_OUTROS]},
+  ]);
+}
+
+// ══════════════════════════════════════════════════════════
+// CARREGAR DADOS DO SHEETS
+// ══════════════════════════════════════════════════════════
+async function carregarDados() {
+  setSyncStatus('syncing','Carregando...');
+  try {
+    await garantirAbas();
+    const [resU, resO] = await Promise.all([
+      sheetsGet(`${ABA_UNIMED}!A2:L`),
+      sheetsGet(`${ABA_OUTROS}!A2:L`),
+    ]);
+    exames=[];
+    const parse = (rows, grupo) => {
+      if(!rows) return;
+      const grupos={};
+      rows.forEach(r=>{
+        const id=r[0]||''; if(!id) return;
+        if(!grupos[id]) grupos[id]={id:parseInt(id),nome:r[1]||'',data:r[2]||'',convenio:r[3]||'',guia:r[4]||'',obs:r[5]||'',grupo,linhas:[],criadoEm:r[11]||''};
+        grupos[id].linhas.push({sigla:r[6]||'',codigo:r[7]||'',tipo:r[8]||'proc',valor:parseFloat(r[9])||0,status:r[10]||'Aguardando'});
+      });
+      Object.values(grupos).forEach(e=>exames.push(e));
+    };
+    parse(resU.values,'unimed');
+    parse(resO.values,'outros');
+    exames.sort((a,b)=>b.id-a.id);
+    atualizarUI();
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+  } catch(err) {
+    setSyncStatus('error','Erro: '+err.message);
+    toast('Erro ao carregar dados: '+err.message,'var(--glosado)');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SALVAR EXAME NO SHEETS
+// ══════════════════════════════════════════════════════════
+async function salvarExame() {
+  const nome    = document.getElementById('f-nome').value.trim();
+  const convSel = document.getElementById('f-convenio').value;
+  const convenio= convSel==='__outro__' ? document.getElementById('f-convenio-outro').value.trim() : convSel;
+  const data    = document.getElementById('f-data').value;
+  const guia    = document.getElementById('f-guia').value.trim();
+  const obs     = document.getElementById('f-obs').value.trim();
+
+  if(!nome)     {toast('⚠ Informe o nome do paciente','var(--pendente)');return;}
+  if(!convenio) {toast('⚠ Selecione o convênio','var(--pendente)');return;}
+  if(!data)     {toast('⚠ Informe a data','var(--pendente)');return;}
+
+  const linhas=[];
+  document.querySelectorAll('#procs-container [id^="proc-"]').forEach(row=>{
+    const sigla=row.querySelector('select').value; if(!sigla) return;
+    const g=GLOSSARIO.find(x=>x.sigla===sigla); if(!g) return;
+    g.codigos.forEach(c=>linhas.push({sigla,codigo:c,status:'Aguardando',tipo:'proc',valor:0}));
+  });
+  if(convenio==='Unimed'){
+    document.querySelectorAll('#taxas-container [id^="taxa-"]').forEach(row=>{
+      const sigla=row.querySelector('select').value; if(!sigla) return;
+      const t=TAXAS_SALA.find(x=>x.sigla===sigla); if(!t) return;
+      t.codigos.forEach(c=>linhas.push({sigla,codigo:c,status:'Aguardando',tipo:'taxa',valor:t.valor}));
+    });
+  }
+  if(!linhas.length){toast('⚠ Adicione ao menos um procedimento','var(--pendente)');return;}
+
+  const id=Date.now();
+  const grupo=convenio==='Unimed'?'unimed':'outros';
+  const aba=grupo==='unimed'?ABA_UNIMED:ABA_OUTROS;
+  const criadoEm=new Date().toISOString();
+  const rows=linhas.map(l=>[id,nome,data,convenio,guia,obs,l.sigla,l.codigo,l.tipo,l.valor||'',l.status,criadoEm]);
+
+  setSyncStatus('syncing','Salvando...');
+  try {
+    await sheetsAppend(aba,rows);
+    const reg={id,nome,convenio,data,guia,obs,grupo,linhas,criadoEm};
+    exames.unshift(reg);
+    atualizarUI();
+    setSyncStatus('ok','Salvo às '+horaAtual());
+    toast('✓ Exame salvo no Google Sheets!');
+    limparForm();
+  } catch(err) {
+    setSyncStatus('error','Erro ao salvar');
+    toast('Erro ao salvar: '+err.message,'var(--glosado)');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// ALTERAR STATUS — atualiza linha específica no Sheets
+// ══════════════════════════════════════════════════════════
+async function changeStatus(exameId, linhaIdx, status) {
+  const e=exames.find(x=>x.id===exameId);
+  if(!e||!e.linhas[linhaIdx]) return;
+  e.linhas[linhaIdx].status=status;
+  atualizarUI();
+  agendarSync(exameId);
+}
+
+function agendarSync(exameId) {
+  clearTimeout(syncTimeout);
+  syncTimeout=setTimeout(()=>syncExame(exameId),1200);
+}
+
+async function syncExame(exameId) {
+  const e=exames.find(x=>x.id===exameId); if(!e) return;
+  const aba=e.grupo==='unimed'?ABA_UNIMED:ABA_OUTROS;
+  setSyncStatus('syncing','Sincronizando...');
+  try {
+    const res=await sheetsGet(`${aba}!A:A`);
+    const rows=res.values||[];
+    const updates=[];
+    e.linhas.forEach((l,li)=>{
+      const rowIndex=rows.findIndex((r,i)=>i>0&&r[0]==exameId.toString()&&countPrevLines(rows,exameId,i)===li);
+      if(rowIndex>0) updates.push({range:`${aba}!K${rowIndex+1}`,values:[[l.status]]});
+    });
+    if(updates.length) await sheetsBatchUpdate(updates);
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+  } catch(err) {setSyncStatus('error','Erro ao sincronizar');}
+}
+
+function countPrevLines(rows,id,upTo) {
+  let c=0;
+  for(let i=1;i<upTo;i++){if(rows[i]&&rows[i][0]==id.toString())c++;}
+  return c;
+}
+
+// ══════════════════════════════════════════════════════════
+// SYNC NOW — recarrega tudo
+// ══════════════════════════════════════════════════════════
+async function syncNow() {
+  await carregarDados();
+  toast('✓ Dados atualizados do Google Sheets!');
+}
+
+// ══════════════════════════════════════════════════════════
+// REMOVER LINHA
+// ══════════════════════════════════════════════════════════
+async function removerLinha(exameId, linhaIdx) {
+  if(!confirm('Remover este registro?')) return;
+  const e=exames.find(x=>x.id===exameId); if(!e) return;
+  e.linhas.splice(linhaIdx,1);
+  if(!e.linhas.length) exames=exames.filter(x=>x.id!==exameId);
+  atualizarUI();
+  toast('Removido localmente. Sincronize para refletir no Sheets.','var(--pendente)');
+}
+
+// ══════════════════════════════════════════════════════════
+// CRUZAMENTO
+// ══════════════════════════════════════════════════════════
+async function cruzarDados(repasse, meta) {
+  let achou=0,naoAchou=0;
+  const log=[];
+  exames.forEach(e=>{
+    const nN=norm(e.nome);
+    e.linhas.forEach(l=>{
+      if(l.status==='Glosado') return;
+      const match=repasse.find(r=>{
+        const nOk=norm(r.nome)===nN, dOk=r.data===e.data;
+        const tOk=r.codigo?r.codigo===l.codigo:true;
+        return nOk&&dOk&&tOk;
+      });
+      if(match){l.status='Pago';achou++;log.push(`<span style="color:var(--pago)">✓ PAGO</span> — ${e.nome} · ${formatData(e.data)} · <span class="tuss-chip">${l.codigo}</span> (${l.sigla})`);}
+      else{l.status='Pendente';naoAchou++;log.push(`<span style="color:var(--pendente)">⏳ PENDENTE</span> — ${e.nome} · ${formatData(e.data)} · <span class="tuss-chip">${l.codigo}</span> (${l.sigla})`);}
+    });
+  });
+  atualizarUI();
+  document.getElementById('upload-resultado').style.display='';
+  document.getElementById('upload-meta').textContent=meta+` | ✓ ${achou} pagos · ⏳ ${naoAchou} pendentes`;
+  document.getElementById('upload-log').innerHTML=log.join('<br>')||'<span style="color:var(--text3)">Nenhum exame para cruzar.</span>';
+  toast(`Cruzamento: ${achou} pagos · ${naoAchou} pendentes — sincronizando...`);
+  // Sincronizar todos os status alterados
+  setSyncStatus('syncing','Enviando ao Sheets...');
+  try {
+    const uLinhas=[], oLinhas=[];
+    exames.forEach(e=>{
+      const aba=e.grupo==='unimed'?ABA_UNIMED:ABA_OUTROS;
+      (aba===ABA_UNIMED?uLinhas:oLinhas).push(e);
+    });
+    await syncStatusMassa(ABA_UNIMED, exames.filter(e=>e.grupo==='unimed'));
+    await syncStatusMassa(ABA_OUTROS, exames.filter(e=>e.grupo==='outros'));
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+    toast(`✓ ${achou} pagos · ${naoAchou} pendentes — Sheets atualizado!`);
+  } catch(err){setSyncStatus('error','Erro ao sincronizar');}
+}
+
+async function syncStatusMassa(aba, lista) {
+  if(!lista.length) return;
+  const res=await sheetsGet(`${aba}!A:K`);
+  const rows=res.values||[];
+  const updates=[];
+  lista.forEach(e=>{
+    let li=0;
+    rows.forEach((r,ri)=>{
+      if(ri===0||r[0]!=e.id.toString()) return;
+      if(e.linhas[li]) updates.push({range:`${aba}!K${ri+1}`,values:[[e.linhas[li].status]]});
+      li++;
+    });
+  });
+  if(updates.length) await sheetsBatchUpdate(updates);
+}
+
+// ══════════════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════════════
+function atualizarUI(){
+  atualizarHeader();renderRecentes();
+  renderTabela('unimed');renderTabela('outros');
+  atualizarMeses();
+}
+
+function setSyncStatus(state, label) {
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  dot.className='sync-dot'+(state==='ok'?' ok':state==='syncing'?' syncing':state==='error'?' error':'');
+  if(label) lbl.textContent=label;
+}
+
+function horaAtual(){
+  return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function switchTab(tab,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='resumo') atualizarResumo();
+  if(tab==='glossario') renderGlossario();
+}
+
+// FORM
+function onConvenioChange(){
+  const v=document.getElementById('f-convenio').value;
+  document.getElementById('wrap-conv-outro').style.display=v==='__outro__'?'':'none';
+  document.getElementById('wrap-taxa').style.display=v==='Unimed'?'':'none';
+}
+
+function addProcRow(siglaVal){
+  const id=++procRowId;
+  const div=document.createElement('div');
+  div.id='proc-'+id; div.className='proc-row';
+  div.innerHTML=`<select onchange="updateProcChips(this,${id})" style="font-size:13px;padding:9px 12px"><option value="">Selecione...</option>${GLOSSARIO.map(g=>`<option value="${g.sigla}" ${siglaVal===g.sigla?'selected':''}>${g.sigla} — ${g.desc}</option>`).join('')}</select><div class="proc-chips" id="pchips-${id}"></div><button type="button" class="remove-btn" onclick="document.getElementById('proc-${id}').remove()">✕</button>`;
+  document.getElementById('procs-container').appendChild(div);
+  if(siglaVal) updateProcChips(div.querySelector('select'),id);
+}
+
+function updateProcChips(sel,id){
+  const g=GLOSSARIO.find(x=>x.sigla===sel.value);
+  document.getElementById('pchips-'+id).innerHTML=g?g.codigos.map(c=>`<span class="tuss-chip">${c}</span>`).join(''):'';
+}
+
+function addTaxaRow(siglaVal){
+  const id=++taxaRowId;
+  const div=document.createElement('div');
+  div.id='taxa-'+id; div.className='proc-row';
+  div.innerHTML=`<select onchange="updateTaxaChips(this,${id})" style="font-size:13px;padding:9px 12px"><option value="">Selecione...</option>${TAXAS_SALA.map(t=>`<option value="${t.sigla}" ${siglaVal===t.sigla?'selected':''}>${t.sigla} — R$ ${t.valor.toFixed(2).replace('.',',')}</option>`).join('')}</select><div class="proc-chips" id="tchips-${id}"></div><button type="button" class="remove-btn" onclick="document.getElementById('taxa-${id}').remove()">✕</button>`;
+  document.getElementById('taxas-container').appendChild(div);
+  if(siglaVal) updateTaxaChips(div.querySelector('select'),id);
+}
+
+function updateTaxaChips(sel,id){
+  const t=TAXAS_SALA.find(x=>x.sigla===sel.value);
+  document.getElementById('tchips-'+id).innerHTML=t?t.codigos.map(c=>`<span class="taxa-chip">${c}</span>`).join(''):'';
+}
+
+function limparForm(){
+  ['f-nome','f-guia','f-obs','f-convenio-outro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('f-convenio').value='';
+  document.getElementById('f-data').value='';
+  document.getElementById('procs-container').innerHTML='';
+  document.getElementById('taxas-container').innerHTML='';
+  document.getElementById('wrap-conv-outro').style.display='none';
+  document.getElementById('wrap-taxa').style.display='none';
+  procRowId=0;taxaRowId=0;
+}
+
+// RECENTES
+function renderRecentes(){
+  const el=document.getElementById('recentes-list');
+  const lista=exames.slice(0,7);
+  if(!lista.length){el.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Nenhum exame ainda</p></div>';return;}
+  el.innerHTML=lista.map(e=>{
+    const siglas=[...new Set(e.linhas.filter(l=>l.tipo==='proc').map(l=>l.sigla))].join(', ');
+    const pagos=e.linhas.every(l=>l.status==='Pago'),glos=e.linhas.some(l=>l.status==='Glosado'),pend=e.linhas.some(l=>l.status==='Pendente');
+    const st=pagos?'Pago':glos?'Glosado':pend?'Pendente':'Aguardando';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.nome}</div><div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${e.convenio} · ${formatData(e.data)}</div><div style="font-size:11px;color:var(--text2);margin-top:2px">${siglas}</div></div><span class="status-badge status-${st.toLowerCase()}">${st}</span></div>`;
+  }).join('');
+}
+
+// TABELAS
+function renderTabela(grupo){
+  const tbody=document.getElementById('tbody-'+grupo);
+  const search=document.getElementById('search-'+grupo).value.toLowerCase();
+  const mes=document.getElementById('mes-'+grupo).value;
+  const filtro=filters[grupo];
+  const isU=grupo==='unimed';
+  let rows=[];
+  exames.filter(e=>e.grupo===grupo).forEach(e=>{e.linhas.forEach((l,li)=>rows.push({...e,linha:l,linhaIdx:li}));});
+  if(search) rows=rows.filter(r=>r.nome.toLowerCase().includes(search)||r.convenio.toLowerCase().includes(search));
+  if(mes) rows=rows.filter(r=>r.data&&r.data.slice(0,7)===mes);
+  if(filtro!=='todos') rows=rows.filter(r=>r.linha.status===filtro);
+  rows.sort((a,b)=>b.data.localeCompare(a.data));
+  const total=exames.filter(e=>e.grupo===grupo).reduce((s,e)=>s+e.linhas.length,0);
+  document.getElementById('count-'+grupo).textContent=total+' linhas';
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="${isU?9:10}"><div class="empty-state"><div class="icon">${isU?'🟢':'🔵'}</div><p>Nenhum registro encontrado</p></div></td></tr>`;return;}
+  tbody.innerHTML=rows.map(r=>{
+    const l=r.linha;const isTaxa=l.tipo==='taxa';
+    const convCol=isU?'':`<td style="font-size:12px;color:var(--text2)">${r.convenio}</td>`;
+    return `<tr><td><div style="font-weight:700;font-size:13px">${r.nome}</div></td>${convCol}<td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${formatData(r.data)}</td><td><div style="font-size:12px;font-weight:700;color:${isTaxa?'var(--unimed)':'var(--text)'}">${l.sigla}</div>${isTaxa&&l.valor?`<div style="font-size:10px;color:var(--text3)">R$ ${Number(l.valor).toFixed(2).replace('.',',')}</div>`:''}</td><td><span class="${isTaxa?'taxa-chip':'tuss-chip'}">${l.codigo}</span></td><td style="font-size:10px;color:var(--text3);background:var(--surface2);border-radius:4px;padding:2px 6px;white-space:nowrap">${isTaxa?'Taxa':'Proc.'}</td><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${r.guia||'—'}</td><td><select class="status-sel" onchange="changeStatus(${r.id},${r.linhaIdx},this.value)"><option ${l.status==='Aguardando'?'selected':''}>Aguardando</option><option ${l.status==='Pago'?'selected':''}>Pago</option><option ${l.status==='Pendente'?'selected':''}>Pendente</option><option ${l.status==='Glosado'?'selected':''}>Glosado</option></select></td><td style="font-size:11px;color:var(--text3);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.obs}">${r.obs||'—'}</td><td><button class="btn btn-danger" onclick="removerLinha(${r.id},${r.linhaIdx})">✕</button></td></tr>`;
+  }).join('');
+}
+
+function setFilter(grupo,filtro,btn){
+  filters[grupo]=filtro;
+  document.querySelectorAll(`#filter-bar-${grupo} .filter-btn`).forEach(b=>b.className='filter-btn');
+  const cls={todos:'fb-all',Pago:'fb-pago',Pendente:'fb-pendente',Glosado:'fb-glosado',Aguardando:'filter-btn'}[filtro]||'filter-btn';
+  btn.classList.add(cls);renderTabela(grupo);
+}
+
+function atualizarMeses(){
+  ['unimed','outros'].forEach(g=>{
+    const meses=[...new Set(exames.filter(e=>e.grupo===g).map(e=>e.data?e.data.slice(0,7):null).filter(Boolean))].sort().reverse();
+    const sel=document.getElementById('mes-'+g);const cur=sel.value;
+    sel.innerHTML='<option value="">Todos os meses</option>'+meses.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${formatMes(m)}</option>`).join('');
+  });
+}
+
+function atualizarHeader(){
+  const ll=exames.flatMap(e=>e.linhas);
+  document.getElementById('hdr-total').textContent=ll.length+' linhas';
+  document.getElementById('hdr-pendente').textContent=ll.filter(l=>l.status==='Pendente').length+' pendentes';
+  document.getElementById('hdr-glosado').textContent=ll.filter(l=>l.status==='Glosado').length+' glosados';
+}
+
+function atualizarResumo(){
+  const ll=exames.flatMap(e=>e.linhas);
+  const total=ll.length,pagos=ll.filter(l=>l.status==='Pago').length;
+  const pend=ll.filter(l=>l.status==='Pendente').length,glos=ll.filter(l=>l.status==='Glosado').length;
+  const pct=v=>total?Math.round(v/total*100)+'%':'—';
+  document.getElementById('res-total').textContent=total;
+  document.getElementById('res-pagos').textContent=pagos;
+  document.getElementById('res-pendentes').textContent=pend;
+  document.getElementById('res-glosados').textContent=glos;
+  document.getElementById('res-pagos-pct').textContent=pct(pagos)+' do total';
+  document.getElementById('res-pend-pct').textContent=pct(pend)+' do total';
+  document.getElementById('res-glos-pct').textContent=pct(glos)+' do total';
+  document.getElementById('res-unimed-detail').innerHTML=resumoDetalhe(exames.filter(e=>e.grupo==='unimed').flatMap(e=>e.linhas));
+  document.getElementById('res-outros-detail').innerHTML=resumoDetalhe(exames.filter(e=>e.grupo==='outros').flatMap(e=>e.linhas));
+  const porSigla={};
+  ll.forEach(l=>{if(!porSigla[l.sigla])porSigla[l.sigla]={total:0,pagos:0,pend:0,glos:0};porSigla[l.sigla].total++;if(l.status==='Pago')porSigla[l.sigla].pagos++;if(l.status==='Pendente')porSigla[l.sigla].pend++;if(l.status==='Glosado')porSigla[l.sigla].glos++;});
+  document.getElementById('res-por-proc').innerHTML=Object.entries(porSigla).sort((a,b)=>b[1].total-a[1].total).map(([s,v])=>`<div style="display:flex;gap:14px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)"><span style="flex:1;font-weight:700;color:var(--accent)">${s}</span><span style="color:var(--text3)">${v.total} total</span><span style="color:var(--pago)">${v.pagos} pago</span><span style="color:var(--pendente)">${v.pend} pend.</span><span style="color:var(--glosado)">${v.glos} glos.</span></div>`).join('')||'<span style="color:var(--text3)">Nenhum dado</span>';
+}
+
+function resumoDetalhe(ll){
+  if(!ll.length) return '<span style="color:var(--text3)">Nenhum cadastro</span>';
+  const pagos=ll.filter(l=>l.status==='Pago').length,pend=ll.filter(l=>l.status==='Pendente').length;
+  const glos=ll.filter(l=>l.status==='Glosado').length,aguard=ll.filter(l=>l.status==='Aguardando').length;
+  return `<div style="color:var(--text3)">Total: <strong style="color:var(--text)">${ll.length}</strong></div><div style="color:var(--pago)">Pagos: <strong>${pagos}</strong></div><div style="color:var(--pendente)">Pendentes: <strong>${pend}</strong></div><div style="color:var(--glosado)">Glosados: <strong>${glos}</strong></div><div style="color:var(--text3)">Aguardando: <strong>${aguard}</strong></div>`;
+}
+
+function renderGlossario(){
+  const all=[...GLOSSARIO.map(g=>({...g,isTaxa:false})),...TAXAS_SALA.map(t=>({...t,isTaxa:true}))];
+  document.getElementById('glossario-grid').innerHTML=all.map(g=>`<div class="gloss-item" style="${g.isTaxa?'border-color:#00875a44;background:rgba(0,135,90,0.06)':''}"><div class="gloss-sigla" style="${g.isTaxa?'color:var(--unimed)':''}">${g.sigla}</div><div class="gloss-desc">${g.desc}${g.valor?`<br><strong style="color:var(--unimed)">R$ ${g.valor.toFixed(2).replace('.',',')}</strong>`:''}</div><div class="gloss-codes">${g.codigos.map(c=>`<span class="${g.isTaxa?'taxa-chip':'tuss-chip'}">${c}</span>`).join('')}</div></div>`).join('');
+}
+
+// UPLOAD CSV
+function handleCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const text=e.target.result;
+      const linhas=text.split('\n').map(l=>l.trim()).filter(Boolean);
+      if(linhas.length<2){toast('CSV sem dados suficientes','var(--glosado)');return;}
+      const sep=linhas[0].includes(';')?';':',';
+      const hdrs=linhas[0].split(sep).map(h=>h.trim().toLowerCase().replace(/['"]/g,'').replace(/\s+/g,'_'));
+      const nC=hdrs.findIndex(h=>['nome','paciente','beneficiario','beneficiário','patient'].includes(h));
+      const dC=hdrs.findIndex(h=>['data','data_exame','competencia','competência','date'].includes(h));
+      const tC=hdrs.findIndex(h=>['codigo','tuss','cod_tuss','procedimento','cod','code','codigo_tuss'].includes(h));
+      if(nC<0){toast('Coluna "nome" não encontrada','var(--glosado)');return;}
+      if(dC<0){toast('Coluna "data" não encontrada','var(--glosado)');return;}
+      const repasse=linhas.slice(1).map(l=>{const cells=l.split(sep).map(c=>c.trim().replace(/^["']|["']$/g,''));return{nome:cells[nC]||'',data:parseData(cells[dC]||''),codigo:tC>=0?cells[tC].replace(/\D/g,''):null};}).filter(r=>r.nome&&r.data);
+      cruzarDados(repasse,`CSV — ${file.name} — ${repasse.length} linhas`);
+    }catch(err){toast('Erro CSV: '+err.message,'var(--glosado)');}
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function handlePDF(event){
+  const file=event.target.files[0];if(!file)return;
+  toast('🔍 Lendo PDF...','var(--outros)');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const raw=new TextDecoder('latin1').decode(new Uint8Array(e.target.result));
+      const parens=raw.match(/\(([^)]{1,120})\)/g)||[];
+      const text=parens.map(p=>p.slice(1,-1)).join(' ');
+      const allCodes=Object.keys(CODE_MAP).join('|');
+      const dateRgx=/(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/g;
+      const codRgx=new RegExp('\\b('+allCodes+')\\b','g');
+      const res=[];let m;
+      while((m=dateRgx.exec(text))!==null){
+        const data=parseData(m[1]);if(!data)continue;
+        const antes=text.slice(Math.max(0,m.index-150),m.index);
+        const nomeM=antes.match(/([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+(?:\s+[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+){1,4})\s*$/);
+        const codM=text.slice(m.index,m.index+100).match(codRgx);
+        if(nomeM) res.push({nome:nomeM[1].trim(),data,codigo:codM?codM[0]:null});
+      }
+      if(!res.length){document.getElementById('upload-resultado').style.display='';document.getElementById('upload-meta').textContent=`PDF — ${file.name} — nenhum dado reconhecido`;document.getElementById('upload-log').innerHTML='<span style="color:var(--pendente)">⚠ PDF pode estar em formato de imagem. Use CSV.</span>';return;}
+      cruzarDados(res,`PDF — ${file.name} — ${res.length} registros extraídos`);
+    }catch(err){toast('Erro PDF: '+err.message,'var(--glosado)');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// EXPORT CSV
+function exportCSV(grupo){
+  const rows=[];
+  exames.filter(e=>e.grupo===grupo).forEach(e=>{e.linhas.forEach(l=>{rows.push({nome:e.nome,convenio:e.convenio,data:formatData(e.data),sigla:l.sigla,codigo_tuss:l.codigo,tipo:l.tipo==='taxa'?'Taxa de Sala':'Procedimento',valor:l.valor||'',guia:e.guia,status:l.status,obs:e.obs});});});
+  if(!rows.length){toast('Nenhum dado','var(--pendente)');return;}
+  const cols=['nome','convenio','data','sigla','codigo_tuss','tipo','valor','guia','status','obs'];
+  const csv=[cols.join(';'),...rows.map(r=>cols.map(c=>`"${(r[c]||'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_${grupo}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('✓ CSV exportado!');
+}
+
+// LIMPAR
+function limparTudo(){
+  if(!confirm('Isso apaga os dados locais. Os dados no Google Sheets permanecem.\nConfirma?'))return;
+  exames=[];atualizarUI();toast('Cache local limpo','var(--pendente)');
+}
+
+// UTILS
+function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m1)return`${m1[3]}-${m1[2]}-${m1[1]}`;const m2=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
+function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
+function formatMes(ym){const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];const[y,m]=ym.split('-');return ms[parseInt(m)-1]+'/'+y;}
+function toast(msg,bg){const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg||'var(--accent)';t.style.color=(bg&&bg!=='var(--accent)')?'#fff':'#0d1117';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3400);}
+function statusBadge(s){const map={Pago:'pago',Pendente:'pendente',Glosado:'glosado',Aguardando:'aguardando'};return`<span class="status-badge status-${map[s]||'aguardando'}">${s}</span>`;}
+
+['drop-csv','drop-pdf'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));el.addEventListener('drop',()=>el.classList.remove('drag-over'));});
+
+// INIT
+checarToken();
+</script>
+</body>
+</html>
