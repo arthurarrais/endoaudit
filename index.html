@@ -12,6 +12,7 @@
     --outros:#5b6af0;--outros-light:#5b6af022;
     --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
     --pago:#00d4aa;--pendente:#ffd166;--glosado:#ff6b6b;--radius:10px;
+    --particular:#c084fc;--particular-light:#c084fc22;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
@@ -62,6 +63,7 @@
   .table-badge{padding:3px 11px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}
   .badge-unimed{background:var(--unimed-light);color:var(--unimed);border:1px solid #00875a44;}
   .badge-outros{background:var(--outros-light);color:var(--outros);border:1px solid #5b6af044;}
+  .badge-particular{background:var(--particular-light);color:var(--particular);border:1px solid #c084fc44;}
   .filter-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
   .filter-btn{padding:4px 13px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s;}
   .fb-all{background:var(--accent);color:#0d1117;border-color:var(--accent);}
@@ -170,6 +172,7 @@
   <button class="nav-tab active"  onclick="switchTab('cadastro',this)">➕ Cadastro</button>
   <button class="nav-tab"         onclick="switchTab('unimed',this)">🟢 Unimed</button>
   <button class="nav-tab"         onclick="switchTab('outros',this)">🔵 Outros Conv.</button>
+  <button class="nav-tab"         onclick="switchTab('particular',this)">🟣 Particular</button>
   <button class="nav-tab"         onclick="switchTab('upload',this)">📂 Upload Repasse</button>
   <button class="nav-tab"         onclick="switchTab('resumo',this)">📊 Resumo</button>
   <button class="nav-tab"         onclick="switchTab('glossario',this)">📖 Glossário TUSS</button>
@@ -281,6 +284,73 @@
   </table></div>
 </div>
 
+<!-- ══ PARTICULAR ══ -->
+<div id="sec-particular" class="section">
+  <div class="table-header">
+    <div class="table-title-block">
+      <div class="section-title" style="margin-bottom:0">Exames Particulares</div>
+      <span class="table-badge badge-particular" id="count-particular">0 exames</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Buscar paciente..." oninput="renderParticular()" id="search-particular" style="width:180px;padding:8px 12px;font-size:12px">
+      <select id="mes-particular" onchange="renderParticular()" style="width:auto;padding:8px 11px;font-size:12px"><option value="">Todos os meses</option></select>
+      <select id="clinica-filter" onchange="renderParticular()" style="width:auto;padding:8px 11px;font-size:12px">
+        <option value="">Todas as clínicas</option>
+        <option>Premiere</option>
+        <option>Gastroharmony</option>
+        <option>Gastroinn</option>
+      </select>
+      <button class="btn btn-secondary" onclick="exportCSVParticular()" style="padding:8px 13px;font-size:11px">⬇ CSV</button>
+    </div>
+  </div>
+
+  <!-- FORMULÁRIO RÁPIDO INLINE -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title" style="font-size:15px;margin-bottom:4px">Novo Exame Particular</div>
+    <div class="card-subtitle">Cadastro rápido — sem convênio, sem código TUSS</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;align-items:end;flex-wrap:wrap">
+      <div class="field" style="margin-bottom:0"><label>Nome do Paciente</label><input type="text" id="p-nome" placeholder="Nome completo" autocomplete="off"></div>
+      <div class="field" style="margin-bottom:0"><label>Data do Exame</label><input type="date" id="p-data"></div>
+      <div class="field" style="margin-bottom:0"><label>Clínica</label>
+        <select id="p-clinica">
+          <option value="">Selecione...</option>
+          <option>Premiere</option>
+          <option>Gastroharmony</option>
+          <option>Gastroinn</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Procedimento</label>
+        <select id="p-proc">
+          <option value="">Selecione...</option>
+          <option>EDA</option>
+          <option>COLONO</option>
+          <option>POLIPO EDA</option>
+          <option>POLIPO COLONO</option>
+          <option>HEMOSTASIA EDA</option>
+          <option>HEMOSTASIA COLONO</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:12px">
+      <div class="field" style="margin-bottom:0"><label>Valor Cobrado (R$)</label><input type="number" id="p-valor" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="field" style="margin-bottom:0"><label>Observação</label><input type="text" id="p-obs" placeholder="Ex: sedação, retorno..."></div>
+      <button class="btn btn-primary" onclick="salvarParticular()" style="width:auto;margin-top:0;white-space:nowrap">✓ Salvar</button>
+    </div>
+  </div>
+
+  <div class="filter-bar" id="filter-bar-particular">
+    <button class="filter-btn fb-all" onclick="setFilterParticular('todos',this)">Todos</button>
+    <button class="filter-btn" onclick="setFilterParticular('Aguardando',this)">⏳ Aguardando</button>
+    <button class="filter-btn" onclick="setFilterParticular('Pago',this)">✓ Pagos</button>
+    <button class="filter-btn" onclick="setFilterParticular('Pendente',this)">⚠ Pendentes</button>
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paciente</th><th>Clínica</th><th>Data</th><th>Procedimento</th><th>Valor</th><th>Status</th><th>Obs</th><th></th></tr></thead>
+    <tbody id="tbody-particular"></tbody>
+  </table></div>
+</div>
+
 <!-- ══ UPLOAD ══ -->
 <div id="sec-upload" class="section">
   <div class="section-title">Upload de Repasse</div>
@@ -329,9 +399,10 @@
     <div class="stat-card"><div class="stat-label">Pendentes</div><div class="stat-value color-pendente" id="res-pendentes">0</div><div class="stat-sub" id="res-pend-pct">—</div></div>
     <div class="stat-card"><div class="stat-label">Glosados</div><div class="stat-value color-glosado" id="res-glosados">0</div><div class="stat-sub" id="res-glos-pct">—</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px">
     <div class="card"><div class="card-title" style="font-size:15px;margin-bottom:14px">🟢 Unimed</div><div id="res-unimed-detail" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2"></div></div>
     <div class="card"><div class="card-title" style="font-size:15px;margin-bottom:14px">🔵 Outros Convênios</div><div id="res-outros-detail" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2"></div></div>
+    <div class="card"><div class="card-title" style="font-size:15px;margin-bottom:14px">🟣 Particular</div><div id="res-particular-detail" style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2"></div></div>
   </div>
   <div class="card" style="margin-bottom:18px">
     <div class="card-title" style="font-size:15px;margin-bottom:14px">Por Procedimento / Sigla</div>
@@ -361,9 +432,11 @@ const SPREADSHEET_ID= '1rM9suZU4KAWGcLTXq3X5Rrv6oPPRPclb8kZ6s0FAaes';
 const SCOPES        = 'https://www.googleapis.com/auth/spreadsheets';
 const ABA_UNIMED    = 'Unimed';
 const ABA_OUTROS    = 'Outros Convênios';
+const ABA_PARTICULAR= 'Particular';
 const ABA_CONFIG    = 'Config';
 const HEADER_UNIMED = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
 const HEADER_OUTROS = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
+const HEADER_PARTICULAR = ['ID','Nome','Data','Clinica','Procedimento','Valor','Status','Obs','CriadoEm'];
 
 // ══════════════════════════════════════════════════════════
 // GLOSSÁRIO TUSS
@@ -387,9 +460,11 @@ const CODE_MAP={};
 // STATE
 // ══════════════════════════════════════════════════════════
 let exames = [];
+let particulares = [];
 let accessToken = null;
 let tokenExpiry  = 0;
 let filters = {unimed:'todos',outros:'todos'};
+let filterParticular = 'todos';
 let procRowId=0, taxaRowId=0;
 let syncTimeout=null;
 
@@ -475,7 +550,7 @@ async function garantirAbas() {
   const info=await r.json();
   const existentes=(info.sheets||[]).map(s=>s.properties.title);
   const requests=[];
-  for(const aba of [ABA_UNIMED,ABA_OUTROS,ABA_CONFIG]) {
+  for(const aba of [ABA_UNIMED,ABA_OUTROS,ABA_PARTICULAR,ABA_CONFIG]) {
     if(!existentes.includes(aba)) requests.push({addSheet:{properties:{title:aba}}});
   }
   if(requests.length){
@@ -485,6 +560,7 @@ async function garantirAbas() {
   await sheetsBatchUpdate([
     {range:`${ABA_UNIMED}!A1`,values:[HEADER_UNIMED]},
     {range:`${ABA_OUTROS}!A1`,values:[HEADER_OUTROS]},
+    {range:`${ABA_PARTICULAR}!A1`,values:[HEADER_PARTICULAR]},
   ]);
 }
 
@@ -495,9 +571,10 @@ async function carregarDados() {
   setSyncStatus('syncing','Carregando...');
   try {
     await garantirAbas();
-    const [resU, resO] = await Promise.all([
+    const [resU, resO, resP] = await Promise.all([
       sheetsGet(`${ABA_UNIMED}!A2:L`),
       sheetsGet(`${ABA_OUTROS}!A2:L`),
+      sheetsGet(`${ABA_PARTICULAR}!A2:I`),
     ]);
     exames=[];
     const parse = (rows, grupo) => {
@@ -512,6 +589,13 @@ async function carregarDados() {
     };
     parse(resU.values,'unimed');
     parse(resO.values,'outros');
+    // Particulares
+    particulares=[];
+    (resP.values||[]).forEach(r=>{
+      if(!r[0]) return;
+      particulares.push({id:parseInt(r[0]),nome:r[1]||'',data:r[2]||'',clinica:r[3]||'',proc:r[4]||'',valor:parseFloat(r[5])||0,status:r[6]||'Aguardando',obs:r[7]||'',criadoEm:r[8]||''});
+    });
+    particulares.sort((a,b)=>b.id-a.id);
     exames.sort((a,b)=>b.id-a.id);
     atualizarUI();
     setSyncStatus('ok','Sincronizado às '+horaAtual());
@@ -692,7 +776,7 @@ async function syncStatusMassa(aba, lista) {
 function atualizarUI(){
   atualizarHeader();renderRecentes();
   renderTabela('unimed');renderTabela('outros');
-  atualizarMeses();
+  renderParticular();atualizarMeses();
 }
 
 function setSyncStatus(state, label) {
@@ -810,6 +894,10 @@ function atualizarMeses(){
     const sel=document.getElementById('mes-'+g);const cur=sel.value;
     sel.innerHTML='<option value="">Todos os meses</option>'+meses.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${formatMes(m)}</option>`).join('');
   });
+  // particular
+  const mesesP=[...new Set(particulares.map(p=>p.data?p.data.slice(0,7):null).filter(Boolean))].sort().reverse();
+  const selP=document.getElementById('mes-particular');const curP=selP.value;
+  selP.innerHTML='<option value="">Todos os meses</option>'+mesesP.map(m=>`<option value="${m}" ${m===curP?'selected':''}>${formatMes(m)}</option>`).join('');
 }
 
 function atualizarHeader(){
@@ -833,6 +921,13 @@ function atualizarResumo(){
   document.getElementById('res-glos-pct').textContent=pct(glos)+' do total';
   document.getElementById('res-unimed-detail').innerHTML=resumoDetalhe(exames.filter(e=>e.grupo==='unimed').flatMap(e=>e.linhas));
   document.getElementById('res-outros-detail').innerHTML=resumoDetalhe(exames.filter(e=>e.grupo==='outros').flatMap(e=>e.linhas));
+  // Particular
+  const totP=particulares.length,pagosP=particulares.filter(p=>p.status==='Pago').length;
+  const pendP=particulares.filter(p=>p.status==='Pendente').length,aguardP=particulares.filter(p=>p.status==='Aguardando').length;
+  const totalValorP=particulares.filter(p=>p.status==='Pago').reduce((s,p)=>s+Number(p.valor||0),0);
+  document.getElementById('res-particular-detail').innerHTML=totP
+    ?`<div style="color:var(--text3)">Total: <strong style="color:var(--text)">${totP}</strong></div><div style="color:var(--pago)">Pagos: <strong>${pagosP}</strong></div><div style="color:var(--pendente)">Pendentes: <strong>${pendP}</strong></div><div style="color:var(--text3)">Aguardando: <strong>${aguardP}</strong></div><div style="color:var(--accent);margin-top:4px">Recebido: <strong>R$ ${totalValorP.toFixed(2).replace('.',',')}</strong></div>`
+    :'<span style="color:var(--text3)">Nenhum cadastro</span>';
   const porSigla={};
   ll.forEach(l=>{if(!porSigla[l.sigla])porSigla[l.sigla]={total:0,pagos:0,pend:0,glos:0};porSigla[l.sigla].total++;if(l.status==='Pago')porSigla[l.sigla].pagos++;if(l.status==='Pendente')porSigla[l.sigla].pend++;if(l.status==='Glosado')porSigla[l.sigla].glos++;});
   document.getElementById('res-por-proc').innerHTML=Object.entries(porSigla).sort((a,b)=>b[1].total-a[1].total).map(([s,v])=>`<div style="display:flex;gap:14px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)"><span style="flex:1;font-weight:700;color:var(--accent)">${s}</span><span style="color:var(--text3)">${v.total} total</span><span style="color:var(--pago)">${v.pagos} pago</span><span style="color:var(--pendente)">${v.pend} pend.</span><span style="color:var(--glosado)">${v.glos} glos.</span></div>`).join('')||'<span style="color:var(--text3)">Nenhum dado</span>';
@@ -928,6 +1023,122 @@ function toast(msg,bg){const t=document.getElementById('toast');t.textContent=ms
 function statusBadge(s){const map={Pago:'pago',Pendente:'pendente',Glosado:'glosado',Aguardando:'aguardando'};return`<span class="status-badge status-${map[s]||'aguardando'}">${s}</span>`;}
 
 ['drop-csv','drop-pdf'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));el.addEventListener('drop',()=>el.classList.remove('drag-over'));});
+
+// ══════════════════════════════════════════════════════════
+// PARTICULAR
+// ══════════════════════════════════════════════════════════
+async function salvarParticular() {
+  const nome   = document.getElementById('p-nome').value.trim();
+  const data   = document.getElementById('p-data').value;
+  const clinica= document.getElementById('p-clinica').value;
+  const proc   = document.getElementById('p-proc').value;
+  const valor  = parseFloat(document.getElementById('p-valor').value)||0;
+  const obs    = document.getElementById('p-obs').value.trim();
+
+  if(!nome)   {toast('⚠ Informe o nome do paciente','var(--pendente)');return;}
+  if(!data)   {toast('⚠ Informe a data','var(--pendente)');return;}
+  if(!clinica){toast('⚠ Selecione a clínica','var(--pendente)');return;}
+  if(!proc)   {toast('⚠ Selecione o procedimento','var(--pendente)');return;}
+
+  const id=Date.now();
+  const criadoEm=new Date().toISOString();
+  const row=[id,nome,data,clinica,proc,valor,'Aguardando',obs,criadoEm];
+
+  setSyncStatus('syncing','Salvando...');
+  try {
+    await sheetsAppend(ABA_PARTICULAR,[row]);
+    particulares.unshift({id,nome,data,clinica,proc,valor,status:'Aguardando',obs,criadoEm});
+    atualizarUI();
+    setSyncStatus('ok','Salvo às '+horaAtual());
+    toast('✓ Exame particular salvo no Google Sheets!');
+    // limpar form particular
+    ['p-nome','p-obs'].forEach(i=>{document.getElementById(i).value='';});
+    document.getElementById('p-data').value='';
+    document.getElementById('p-clinica').value='';
+    document.getElementById('p-proc').value='';
+    document.getElementById('p-valor').value='';
+  } catch(err){setSyncStatus('error','Erro ao salvar');toast('Erro: '+err.message,'var(--glosado)');}
+}
+
+async function changeStatusParticular(id, status) {
+  const p=particulares.find(x=>x.id===id); if(!p) return;
+  p.status=status;
+  renderParticular();
+  setSyncStatus('syncing','Sincronizando...');
+  try {
+    const res=await sheetsGet(`${ABA_PARTICULAR}!A:A`);
+    const rows=res.values||[];
+    const ri=rows.findIndex((r,i)=>i>0&&r[0]==id.toString());
+    if(ri>0) await sheetsBatchUpdate([{range:`${ABA_PARTICULAR}!G${ri+1}`,values:[[status]]}]);
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+  } catch(err){setSyncStatus('error','Erro ao sincronizar');}
+}
+
+async function removerParticular(id) {
+  if(!confirm('Remover este exame particular?')) return;
+  particulares=particulares.filter(p=>p.id!==id);
+  renderParticular();
+  atualizarMeses();
+  toast('Removido localmente. Exclua manualmente na planilha se necessário.','var(--pendente)');
+}
+
+function setFilterParticular(filtro, btn) {
+  filterParticular=filtro;
+  document.querySelectorAll('#filter-bar-particular .filter-btn').forEach(b=>b.className='filter-btn');
+  const cls={todos:'fb-all',Pago:'fb-pago',Pendente:'fb-pendente',Aguardando:'filter-btn'}[filtro]||'filter-btn';
+  btn.classList.add(cls);
+  renderParticular();
+}
+
+function renderParticular() {
+  const tbody=document.getElementById('tbody-particular');
+  const search=document.getElementById('search-particular').value.toLowerCase();
+  const mes=document.getElementById('mes-particular').value;
+  const clinicaF=document.getElementById('clinica-filter').value;
+
+  let lista=[...particulares];
+  if(search) lista=lista.filter(p=>p.nome.toLowerCase().includes(search));
+  if(mes)    lista=lista.filter(p=>p.data&&p.data.slice(0,7)===mes);
+  if(clinicaF) lista=lista.filter(p=>p.clinica===clinicaF);
+  if(filterParticular!=='todos') lista=lista.filter(p=>p.status===filterParticular);
+  lista.sort((a,b)=>b.data.localeCompare(a.data));
+
+  document.getElementById('count-particular').textContent=particulares.length+' exames';
+
+  if(!lista.length){
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="icon">🟣</div><p>Nenhum exame particular encontrado</p></div></td></tr>`;
+    return;
+  }
+
+  const clinicaCor={'Premiere':'#f59e0b','Gastroharmony':'#ec4899','Gastroinn':'#8b5cf6'};
+  tbody.innerHTML=lista.map(p=>`
+    <tr>
+      <td><div style="font-weight:700;font-size:13px">${p.nome}</div></td>
+      <td><span style="background:${clinicaCor[p.clinica]||'#888'}22;color:${clinicaCor[p.clinica]||'#888'};border:1px solid ${clinicaCor[p.clinica]||'#888'}44;padding:2px 10px;border-radius:100px;font-size:11px;font-weight:700">${p.clinica}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${formatData(p.data)}</td>
+      <td style="font-weight:600;font-size:12px;color:var(--particular)">${p.proc}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${p.valor?'R$ '+Number(p.valor).toFixed(2).replace('.',','):'—'}</td>
+      <td>
+        <select class="status-sel" onchange="changeStatusParticular(${p.id},this.value)">
+          <option ${p.status==='Aguardando'?'selected':''}>Aguardando</option>
+          <option ${p.status==='Pago'?'selected':''}>Pago</option>
+          <option ${p.status==='Pendente'?'selected':''}>Pendente</option>
+        </select>
+      </td>
+      <td style="font-size:11px;color:var(--text3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.obs}">${p.obs||'—'}</td>
+      <td><button class="btn btn-danger" onclick="removerParticular(${p.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+function exportCSVParticular() {
+  if(!particulares.length){toast('Nenhum dado','var(--pendente)');return;}
+  const cols=['nome','clinica','data','proc','valor','status','obs'];
+  const csv=[cols.join(';'),...particulares.map(p=>cols.map(c=>`"${(p[c]||'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_particular_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('✓ CSV exportado!');
+}
 
 // INIT
 checarToken();
