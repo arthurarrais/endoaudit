@@ -49,6 +49,9 @@
   input,select{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 13px;font-family:'Syne',sans-serif;font-size:13px;color:var(--text);transition:border-color 0.2s;outline:none;width:100%;}
   input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,170,0.08);}
   select option{background:#1f2937;}
+  /* Maiúsculas automáticas em campos de nome */
+  input[id$="-nome"], input[id="f-nome"] { text-transform: uppercase; }
+  input[id$="-nome"]::placeholder, input[id="f-nome"]::placeholder { text-transform: none; }
   .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;}
   .btn-primary{background:var(--accent);color:#0d1117;width:100%;justify-content:center;margin-top:6px;}
   .btn-primary:hover{background:#00b894;transform:translateY(-1px);}
@@ -172,7 +175,9 @@
   <button class="nav-tab active"  onclick="switchTab('cadastro',this)">➕ Cadastro</button>
   <button class="nav-tab"         onclick="switchTab('unimed',this)">🟢 Unimed</button>
   <button class="nav-tab"         onclick="switchTab('outros',this)">🔵 Outros Conv.</button>
-  <button class="nav-tab"         onclick="switchTab('particular',this)">🟣 Particular</button>
+  <button class="nav-tab"         onclick="switchTab('particular',this)">🟣 Exames Particulares</button>
+  <button class="nav-tab"         onclick="switchTab('consultas',this)">🩺 Consultas Part.</button>
+  <button class="nav-tab"         onclick="switchTab('testes',this)">🫁 Testes Resp.</button>
   <button class="nav-tab"         onclick="switchTab('upload',this)">📂 Upload Repasse</button>
   <button class="nav-tab"         onclick="switchTab('resumo',this)">📊 Resumo</button>
   <button class="nav-tab"         onclick="switchTab('glossario',this)">📖 Glossário TUSS</button>
@@ -188,7 +193,7 @@
     <div class="card">
       <div class="card-title">Novo Registro</div>
       <div class="card-subtitle">Siglas: EDA · COLONO · POLIPO EDA · POLIPO COLONO · HEMOSTASIA EDA · HEMOSTASIA COLONO</div>
-      <div class="field"><label>Nome do Paciente</label><input type="text" id="f-nome" placeholder="Nome completo" autocomplete="off"></div>
+      <div class="field"><label>Nome do Paciente</label><input type="text" id="f-nome" placeholder="Nome completo" autocomplete="off" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="field-row field-row-2">
         <div class="field" style="margin-bottom:0"><label>Convênio</label>
           <select id="f-convenio" onchange="onConvenioChange()">
@@ -318,12 +323,11 @@
     </div>
   </div>
 
-  <!-- FORMULÁRIO RÁPIDO INLINE -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-title" style="font-size:15px;margin-bottom:4px">Novo Exame Particular</div>
     <div class="card-subtitle">Cadastro rápido — sem convênio, sem código TUSS</div>
     <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;align-items:end;flex-wrap:wrap">
-      <div class="field" style="margin-bottom:0"><label>Nome do Paciente</label><input type="text" id="p-nome" placeholder="Nome completo" autocomplete="off"></div>
+      <div class="field" style="margin-bottom:0"><label>Nome do Paciente</label><input type="text" id="p-nome" placeholder="Nome completo" autocomplete="off" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="field" style="margin-bottom:0"><label>Data do Exame</label><input type="date" id="p-data"></div>
       <div class="field" style="margin-bottom:0"><label>Clínica</label>
         <select id="p-clinica">
@@ -338,6 +342,7 @@
           <option value="">Selecione...</option>
           <option>EDA</option>
           <option>COLONO</option>
+          <option>EDA + COLONO</option>
           <option>POLIPO EDA</option>
           <option>POLIPO COLONO</option>
           <option>HEMOSTASIA EDA</option>
@@ -362,6 +367,124 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Paciente</th><th>Clínica</th><th>Data</th><th>Procedimento</th><th>Valor</th><th>Status</th><th>Obs</th><th></th></tr></thead>
     <tbody id="tbody-particular"></tbody>
+  </table></div>
+</div>
+
+<!-- ══ CONSULTAS PARTICULARES ══ -->
+<div id="sec-consultas" class="section">
+  <div class="table-header">
+    <div class="table-title-block">
+      <div class="section-title" style="margin-bottom:0">Consultas Particulares</div>
+      <span class="table-badge" style="background:#fef3c722;color:#d97706;border:1px solid #d9770644" id="count-consultas">0 consultas</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Buscar paciente..." oninput="renderConsultas()" id="search-consultas" style="width:180px;padding:8px 12px;font-size:12px">
+      <select id="mes-consultas" onchange="renderConsultas()" style="width:auto;padding:8px 11px;font-size:12px"><option value="">Todos os meses</option></select>
+      <button class="btn btn-secondary" onclick="exportCSVConsultas()" style="padding:8px 13px;font-size:11px">⬇ CSV</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title" style="font-size:15px;margin-bottom:4px">Nova Consulta Particular</div>
+    <div class="card-subtitle">Preencha os dados da consulta</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;align-items:end">
+      <div class="field" style="margin-bottom:0"><label>Nome do Paciente</label><input type="text" id="c-nome" placeholder="Nome completo" autocomplete="off" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="field" style="margin-bottom:0"><label>Data</label><input type="date" id="c-data"></div>
+      <div class="field" style="margin-bottom:0"><label>Valor (R$)</label><input type="number" id="c-valor" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="field" style="margin-bottom:0"><label>Primeira vez?</label>
+        <select id="c-primeira">
+          <option value="">Selecione...</option>
+          <option value="SIM">SIM</option>
+          <option value="NÃO">NÃO</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:12px;align-items:end;margin-top:12px">
+      <div class="field" style="margin-bottom:0"><label>Possui Convênio?</label>
+        <select id="c-tem-convenio" onchange="toggleConsultaConvenio()">
+          <option value="NÃO">NÃO</option>
+          <option value="SIM">SIM</option>
+        </select>
+      </div>
+      <div class="field" id="wrap-c-convenio" style="margin-bottom:0;display:none"><label>Convênio</label>
+        <select id="c-convenio">
+          <option value="">Selecione...</option>
+          <option>AMIL</option>
+          <option>ASSEFAZ</option>
+          <option>BANCO CENTRAL</option>
+          <option>BRADESCO</option>
+          <option>CAFAZ</option>
+          <option>CAMED</option>
+          <option>CASSI</option>
+          <option>FACHESF</option>
+          <option>FAMED</option>
+          <option>FUNSA</option>
+          <option>FUSEX</option>
+          <option>FUSMA</option>
+          <option>GEAP</option>
+          <option>HAPVIDA</option>
+          <option>IPM</option>
+          <option>ISSEC</option>
+          <option>LIV SAUDE</option>
+          <option>PAS</option>
+          <option>PETROBRAS</option>
+          <option>POSTAL SAUDE</option>
+          <option>SAO CAMILO</option>
+          <option>SAUDE CAIXA</option>
+          <option>SULAMERICA</option>
+          <option>UNIMED</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="salvarConsulta()" style="width:auto;margin-top:0;white-space:nowrap">✓ Salvar</button>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paciente</th><th>Data</th><th>Valor</th><th>1ª vez?</th><th>Convênio</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tbody-consultas"></tbody>
+  </table></div>
+</div>
+
+<!-- ══ TESTES RESPIRATÓRIOS ══ -->
+<div id="sec-testes" class="section">
+  <div class="table-header">
+    <div class="table-title-block">
+      <div class="section-title" style="margin-bottom:0">Testes Respiratórios</div>
+      <span class="table-badge" style="background:#e0f2fe22;color:#0284c7;border:1px solid #0284c744" id="count-testes">0 testes</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" placeholder="Buscar paciente..." oninput="renderTestes()" id="search-testes" style="width:180px;padding:8px 12px;font-size:12px">
+      <select id="mes-testes" onchange="renderTestes()" style="width:auto;padding:8px 11px;font-size:12px"><option value="">Todos os meses</option></select>
+      <button class="btn btn-secondary" onclick="exportCSVTestes()" style="padding:8px 13px;font-size:11px">⬇ CSV</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title" style="font-size:15px;margin-bottom:4px">Novo Teste Respiratório</div>
+    <div class="card-subtitle">Preencha os dados do teste</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;align-items:end">
+      <div class="field" style="margin-bottom:0"><label>Nome do Paciente</label><input type="text" id="t-nome" placeholder="Nome completo" autocomplete="off" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="field" style="margin-bottom:0"><label>Data</label><input type="date" id="t-data"></div>
+      <div class="field" style="margin-bottom:0"><label>Valor (R$)</label><input type="number" id="t-valor" placeholder="0,00" step="0.01" min="0"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:12px">
+      <div class="field" style="margin-bottom:0"><label>Solicitante</label>
+        <select id="t-solicitante" onchange="toggleTesteSolicitante()">
+          <option value="">Selecione...</option>
+          <option value="Arthur/Vanessa">Arthur/Vanessa</option>
+          <option value="Outros">Outros</option>
+        </select>
+      </div>
+      <div class="field" id="wrap-t-solicitante" style="margin-bottom:0;display:none"><label>Nome do Solicitante</label>
+        <input type="text" id="t-solicitante-outro" placeholder="Nome do profissional" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <button class="btn btn-primary" onclick="salvarTeste()" style="width:auto;margin-top:0;white-space:nowrap">✓ Salvar</button>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paciente</th><th>Data</th><th>Valor</th><th>Solicitante</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tbody-testes"></tbody>
   </table></div>
 </div>
 
@@ -447,10 +570,14 @@ const SCOPES        = 'https://www.googleapis.com/auth/spreadsheets';
 const ABA_UNIMED    = 'Unimed';
 const ABA_OUTROS    = 'Outros Convênios';
 const ABA_PARTICULAR= 'Particular';
+const ABA_CONSULTAS = 'Consultas Particulares';
+const ABA_TESTES    = 'Testes Respiratorios';
 const ABA_CONFIG    = 'Config';
 const HEADER_UNIMED = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
 const HEADER_OUTROS = ['ID','Nome','Data','Convenio','Guia','Obs','Sigla','Codigo_TUSS','Tipo','Valor','Status','CriadoEm'];
-const HEADER_PARTICULAR = ['ID','Nome','Data','Clinica','Procedimento','Valor','Status','Obs','CriadoEm'];
+const HEADER_PARTICULAR  = ['ID','Nome','Data','Clinica','Procedimento','Valor','Status','Obs','CriadoEm'];
+const HEADER_CONSULTAS   = ['ID','Nome','Data','Valor','Primeira_Vez','Tem_Convenio','Convenio','Status','CriadoEm'];
+const HEADER_TESTES      = ['ID','Nome','Data','Valor','Solicitante','Status','CriadoEm'];
 
 // ══════════════════════════════════════════════════════════
 // GLOSSÁRIO TUSS
@@ -476,6 +603,8 @@ const CODE_MAP={};
 // ══════════════════════════════════════════════════════════
 let exames = [];
 let particulares = [];
+let consultas = [];
+let testes = [];
 let accessToken = null;
 let tokenExpiry  = 0;
 let filters = {unimed:'todos',outros:'todos'};
@@ -565,7 +694,7 @@ async function garantirAbas() {
   const info=await r.json();
   const existentes=(info.sheets||[]).map(s=>s.properties.title);
   const requests=[];
-  for(const aba of [ABA_UNIMED,ABA_OUTROS,ABA_PARTICULAR,ABA_CONFIG]) {
+  for(const aba of [ABA_UNIMED,ABA_OUTROS,ABA_PARTICULAR,ABA_CONSULTAS,ABA_TESTES,ABA_CONFIG]) {
     if(!existentes.includes(aba)) requests.push({addSheet:{properties:{title:aba}}});
   }
   if(requests.length){
@@ -573,9 +702,11 @@ async function garantirAbas() {
   }
   // Garantir cabeçalhos
   await sheetsBatchUpdate([
-    {range:`${ABA_UNIMED}!A1`,values:[HEADER_UNIMED]},
-    {range:`${ABA_OUTROS}!A1`,values:[HEADER_OUTROS]},
+    {range:`${ABA_UNIMED}!A1`,    values:[HEADER_UNIMED]},
+    {range:`${ABA_OUTROS}!A1`,    values:[HEADER_OUTROS]},
     {range:`${ABA_PARTICULAR}!A1`,values:[HEADER_PARTICULAR]},
+    {range:`${ABA_CONSULTAS}!A1`, values:[HEADER_CONSULTAS]},
+    {range:`${ABA_TESTES}!A1`,    values:[HEADER_TESTES]},
   ]);
 }
 
@@ -586,10 +717,12 @@ async function carregarDados() {
   setSyncStatus('syncing','Carregando...');
   try {
     await garantirAbas();
-    const [resU, resO, resP] = await Promise.all([
+    const [resU, resO, resP, resC, resT] = await Promise.all([
       sheetsGet(`${ABA_UNIMED}!A2:L`),
       sheetsGet(`${ABA_OUTROS}!A2:L`),
       sheetsGet(`${ABA_PARTICULAR}!A2:I`),
+      sheetsGet(`${ABA_CONSULTAS}!A2:I`),
+      sheetsGet(`${ABA_TESTES}!A2:G`),
     ]);
     exames=[];
     const parse = (rows, grupo) => {
@@ -611,6 +744,20 @@ async function carregarDados() {
       particulares.push({id:parseInt(r[0]),nome:r[1]||'',data:r[2]||'',clinica:r[3]||'',proc:r[4]||'',valor:parseFloat(r[5])||0,status:r[6]||'Aguardando',obs:r[7]||'',criadoEm:r[8]||''});
     });
     particulares.sort((a,b)=>b.id-a.id);
+    // Consultas
+    consultas=[];
+    (resC.values||[]).forEach(r=>{
+      if(!r[0]) return;
+      consultas.push({id:parseInt(r[0]),nome:r[1]||'',data:r[2]||'',valor:parseFloat(r[3])||0,primeiraVez:r[4]||'',temConvenio:r[5]||'NÃO',convenio:r[6]||'',status:r[7]||'Aguardando',criadoEm:r[8]||''});
+    });
+    consultas.sort((a,b)=>b.id-a.id);
+    // Testes
+    testes=[];
+    (resT.values||[]).forEach(r=>{
+      if(!r[0]) return;
+      testes.push({id:parseInt(r[0]),nome:r[1]||'',data:r[2]||'',valor:parseFloat(r[3])||0,solicitante:r[4]||'',status:r[5]||'Aguardando',criadoEm:r[6]||''});
+    });
+    testes.sort((a,b)=>b.id-a.id);
     exames.sort((a,b)=>b.id-a.id);
     atualizarUI();
     setSyncStatus('ok','Sincronizado às '+horaAtual());
@@ -624,7 +771,7 @@ async function carregarDados() {
 // SALVAR EXAME NO SHEETS
 // ══════════════════════════════════════════════════════════
 async function salvarExame() {
-  const nome    = document.getElementById('f-nome').value.trim();
+  const nome    = maiusc(document.getElementById('f-nome').value);
   const convSel = document.getElementById('f-convenio').value;
   const convenio= convSel==='__outro__' ? document.getElementById('f-convenio-outro').value.trim() : convSel;
   const data    = document.getElementById('f-data').value;
@@ -807,7 +954,8 @@ async function syncStatusMassa(aba, lista) {
 function atualizarUI(){
   atualizarHeader();renderRecentes();
   renderTabela('unimed');renderTabela('outros');
-  renderParticular();atualizarMeses();
+  renderParticular();renderConsultas();renderTestes();
+  atualizarMeses();
 }
 
 function setSyncStatus(state, label) {
@@ -953,6 +1101,14 @@ function atualizarMeses(){
   const mesesP=[...new Set(particulares.map(p=>p.data?p.data.slice(0,7):null).filter(Boolean))].sort().reverse();
   const selP=document.getElementById('mes-particular');const curP=selP.value;
   selP.innerHTML='<option value="">Todos os meses</option>'+mesesP.map(m=>`<option value="${m}" ${m===curP?'selected':''}>${formatMes(m)}</option>`).join('');
+  // consultas
+  const mesesC=[...new Set(consultas.map(c=>c.data?c.data.slice(0,7):null).filter(Boolean))].sort().reverse();
+  const selC=document.getElementById('mes-consultas');const curC=selC.value;
+  selC.innerHTML='<option value="">Todos os meses</option>'+mesesC.map(m=>`<option value="${m}" ${m===curC?'selected':''}>${formatMes(m)}</option>`).join('');
+  // testes
+  const mesesT=[...new Set(testes.map(t=>t.data?t.data.slice(0,7):null).filter(Boolean))].sort().reverse();
+  const selT=document.getElementById('mes-testes');const curT=selT.value;
+  selT.innerHTML='<option value="">Todos os meses</option>'+mesesT.map(m=>`<option value="${m}" ${m===curT?'selected':''}>${formatMes(m)}</option>`).join('');
 }
 
 function atualizarHeader(){
@@ -1070,6 +1226,7 @@ function limparTudo(){
 }
 
 // UTILS
+function maiusc(s){return(s||'').toUpperCase().trim();}
 function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m1)return`${m1[3]}-${m1[2]}-${m1[1]}`;const m2=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
 function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
@@ -1083,7 +1240,7 @@ function statusBadge(s){const map={Pago:'pago',Pendente:'pendente',Glosado:'glos
 // PARTICULAR
 // ══════════════════════════════════════════════════════════
 async function salvarParticular() {
-  const nome   = document.getElementById('p-nome').value.trim();
+  const nome   = maiusc(document.getElementById('p-nome').value);
   const data   = document.getElementById('p-data').value;
   const clinica= document.getElementById('p-clinica').value;
   const proc   = document.getElementById('p-proc').value;
@@ -1192,6 +1349,192 @@ function exportCSVParticular() {
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
   a.download=`endoaudit_particular_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('✓ CSV exportado!');
+}
+
+// ══════════════════════════════════════════════════════════
+// CONSULTAS PARTICULARES
+// ══════════════════════════════════════════════════════════
+function toggleConsultaConvenio() {
+  const v=document.getElementById('c-tem-convenio').value;
+  document.getElementById('wrap-c-convenio').style.display=v==='SIM'?'':'none';
+}
+
+async function salvarConsulta() {
+  const nome      = maiusc(document.getElementById('c-nome').value);
+  const data      = document.getElementById('c-data').value;
+  const valor     = parseFloat(document.getElementById('c-valor').value)||0;
+  const primeira  = document.getElementById('c-primeira').value;
+  const temConv   = document.getElementById('c-tem-convenio').value;
+  const convenio  = temConv==='SIM' ? document.getElementById('c-convenio').value : '';
+
+  if(!nome)    {toast('⚠ Informe o nome do paciente','var(--pendente)');return;}
+  if(!data)    {toast('⚠ Informe a data','var(--pendente)');return;}
+  if(!primeira){toast('⚠ Informe se é primeira vez','var(--pendente)');return;}
+
+  const id=Date.now(); const criadoEm=new Date().toISOString();
+  const row=[id,nome,data,valor,primeira,temConv,convenio,'Aguardando',criadoEm];
+  setSyncStatus('syncing','Salvando...');
+  try {
+    await sheetsAppend(ABA_CONSULTAS,[row]);
+    consultas.unshift({id,nome,data,valor,primeiraVez:primeira,temConvenio:temConv,convenio,status:'Aguardando',criadoEm});
+    atualizarUI();
+    setSyncStatus('ok','Salvo às '+horaAtual());
+    toast('✓ Consulta salva no Google Sheets!');
+    ['c-nome','c-valor'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('c-data').value='';
+    document.getElementById('c-primeira').value='';
+    document.getElementById('c-tem-convenio').value='NÃO';
+    document.getElementById('c-convenio').value='';
+    document.getElementById('wrap-c-convenio').style.display='none';
+  } catch(err){setSyncStatus('error','Erro ao salvar');toast('Erro: '+err.message,'var(--glosado)');}
+}
+
+async function changeStatusConsulta(id, status) {
+  const c=consultas.find(x=>x.id===id); if(!c) return;
+  c.status=status; renderConsultas();
+  setSyncStatus('syncing','Sincronizando...');
+  try {
+    const res=await sheetsGet(`${ABA_CONSULTAS}!A:A`);
+    const rows=res.values||[];
+    const ri=rows.findIndex((r,i)=>i>0&&r[0]==id.toString());
+    if(ri>0) await sheetsBatchUpdate([{range:`${ABA_CONSULTAS}!H${ri+1}`,values:[[status]]}]);
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+  } catch(err){setSyncStatus('error','Erro ao sincronizar');}
+}
+
+function renderConsultas() {
+  const tbody=document.getElementById('tbody-consultas');
+  const search=document.getElementById('search-consultas').value.toLowerCase();
+  const mes=document.getElementById('mes-consultas').value;
+  let lista=[...consultas];
+  if(search) lista=lista.filter(c=>c.nome.toLowerCase().includes(search));
+  if(mes)    lista=lista.filter(c=>c.data&&c.data.slice(0,7)===mes);
+  lista.sort((a,b)=>b.data.localeCompare(a.data));
+  document.getElementById('count-consultas').textContent=consultas.length+' consultas';
+  if(!lista.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="icon">🩺</div><p>Nenhuma consulta registrada</p></div></td></tr>';return;}
+  tbody.innerHTML=lista.map(c=>`
+    <tr>
+      <td><div style="font-weight:700;font-size:13px">${c.nome}</div></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${formatData(c.data)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${c.valor?'R$ '+Number(c.valor).toFixed(2).replace('.',','):'—'}</td>
+      <td><span style="background:${c.primeiraVez==='SIM'?'rgba(0,212,170,0.12)':'rgba(148,163,184,0.1)'};color:${c.primeiraVez==='SIM'?'var(--pago)':'var(--text2)'};padding:2px 10px;border-radius:100px;font-size:10px;font-weight:700">${c.primeiraVez||'—'}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${c.temConvenio==='SIM'?c.convenio:'—'}</td>
+      <td><select class="status-sel" onchange="changeStatusConsulta(${c.id},this.value)">
+        <option ${c.status==='Aguardando'?'selected':''}>Aguardando</option>
+        <option ${c.status==='Pago'?'selected':''}>Pago</option>
+        <option ${c.status==='Pendente'?'selected':''}>Pendente</option>
+      </select></td>
+      <td><button class="btn btn-danger" onclick="removerConsulta(${c.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+function removerConsulta(id){
+  if(!confirm('Remover esta consulta?')) return;
+  consultas=consultas.filter(c=>c.id!==id);
+  renderConsultas();atualizarMeses();
+  toast('Removido localmente.','var(--pendente)');
+}
+
+function exportCSVConsultas(){
+  if(!consultas.length){toast('Nenhum dado','var(--pendente)');return;}
+  const cols=['nome','data','valor','primeiraVez','temConvenio','convenio','status'];
+  const csv=[cols.join(';'),...consultas.map(c=>cols.map(k=>`"${(c[k]||'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_consultas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('✓ CSV exportado!');
+}
+
+// ══════════════════════════════════════════════════════════
+// TESTES RESPIRATÓRIOS
+// ══════════════════════════════════════════════════════════
+function toggleTesteSolicitante() {
+  const v=document.getElementById('t-solicitante').value;
+  document.getElementById('wrap-t-solicitante').style.display=v==='Outros'?'':'none';
+}
+
+async function salvarTeste() {
+  const nome  = maiusc(document.getElementById('t-nome').value);
+  const data  = document.getElementById('t-data').value;
+  const valor = parseFloat(document.getElementById('t-valor').value)||0;
+  const solSel= document.getElementById('t-solicitante').value;
+  const solOutro=maiusc(document.getElementById('t-solicitante-outro').value);
+  const solicitante = solSel==='Outros' ? (solOutro||'Outros') : solSel;
+
+  if(!nome)       {toast('⚠ Informe o nome do paciente','var(--pendente)');return;}
+  if(!data)       {toast('⚠ Informe a data','var(--pendente)');return;}
+  if(!solicitante){toast('⚠ Informe o solicitante','var(--pendente)');return;}
+
+  const id=Date.now(); const criadoEm=new Date().toISOString();
+  const row=[id,nome,data,valor,solicitante,'Aguardando',criadoEm];
+  setSyncStatus('syncing','Salvando...');
+  try {
+    await sheetsAppend(ABA_TESTES,[row]);
+    testes.unshift({id,nome,data,valor,solicitante,status:'Aguardando',criadoEm});
+    atualizarUI();
+    setSyncStatus('ok','Salvo às '+horaAtual());
+    toast('✓ Teste salvo no Google Sheets!');
+    ['t-nome','t-valor','t-solicitante-outro'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('t-data').value='';
+    document.getElementById('t-solicitante').value='';
+    document.getElementById('wrap-t-solicitante').style.display='none';
+  } catch(err){setSyncStatus('error','Erro ao salvar');toast('Erro: '+err.message,'var(--glosado)');}
+}
+
+async function changeStatusTeste(id, status) {
+  const t=testes.find(x=>x.id===id); if(!t) return;
+  t.status=status; renderTestes();
+  setSyncStatus('syncing','Sincronizando...');
+  try {
+    const res=await sheetsGet(`${ABA_TESTES}!A:A`);
+    const rows=res.values||[];
+    const ri=rows.findIndex((r,i)=>i>0&&r[0]==id.toString());
+    if(ri>0) await sheetsBatchUpdate([{range:`${ABA_TESTES}!F${ri+1}`,values:[[status]]}]);
+    setSyncStatus('ok','Sincronizado às '+horaAtual());
+  } catch(err){setSyncStatus('error','Erro ao sincronizar');}
+}
+
+function renderTestes() {
+  const tbody=document.getElementById('tbody-testes');
+  const search=document.getElementById('search-testes').value.toLowerCase();
+  const mes=document.getElementById('mes-testes').value;
+  let lista=[...testes];
+  if(search) lista=lista.filter(t=>t.nome.toLowerCase().includes(search));
+  if(mes)    lista=lista.filter(t=>t.data&&t.data.slice(0,7)===mes);
+  lista.sort((a,b)=>b.data.localeCompare(a.data));
+  document.getElementById('count-testes').textContent=testes.length+' testes';
+  if(!lista.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="icon">🫁</div><p>Nenhum teste registrado</p></div></td></tr>';return;}
+  const solCor={'Arthur/Vanessa':'var(--accent)'};
+  tbody.innerHTML=lista.map(t=>`
+    <tr>
+      <td><div style="font-weight:700;font-size:13px">${t.nome}</div></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${formatData(t.data)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${t.valor?'R$ '+Number(t.valor).toFixed(2).replace('.',','):'—'}</td>
+      <td style="font-size:12px;font-weight:600;color:${solCor[t.solicitante]||'var(--text2)'}">${t.solicitante||'—'}</td>
+      <td><select class="status-sel" onchange="changeStatusTeste(${t.id},this.value)">
+        <option ${t.status==='Aguardando'?'selected':''}>Aguardando</option>
+        <option ${t.status==='Pago'?'selected':''}>Pago</option>
+        <option ${t.status==='Pendente'?'selected':''}>Pendente</option>
+      </select></td>
+      <td><button class="btn btn-danger" onclick="removerTeste(${t.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+function removerTeste(id){
+  if(!confirm('Remover este teste?')) return;
+  testes=testes.filter(t=>t.id!==id);
+  renderTestes();atualizarMeses();
+  toast('Removido localmente.','var(--pendente)');
+}
+
+function exportCSVTestes(){
+  if(!testes.length){toast('Nenhum dado','var(--pendente)');return;}
+  const cols=['nome','data','valor','solicitante','status'];
+  const csv=[cols.join(';'),...testes.map(t=>cols.map(k=>`"${(t[k]||'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_testes_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();toast('✓ CSV exportado!');
 }
 
