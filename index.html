@@ -130,6 +130,21 @@
     .header-right .stat-pill{display:none;}.nav-tabs{padding:0 8px;}
     .field-row-2{grid-template-columns:1fr;}.glossario-grid{grid-template-columns:1fr 1fr;}
   }
+  @media print {
+    header, nav, .header-right, button, select, .filter-bar,
+    #btn-conv-res, #btn-conv-det { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+    .card { background: #fff !important; border: 1px solid #ccc !important; }
+    #sec-relatorio { display: block !important; }
+    .section { display: none !important; }
+    #sec-relatorio { display: block !important; }
+    :root { --text:#000; --text2:#333; --text3:#666; --border:#ccc;
+            --surface:#fff; --surface2:#f5f5f5; --bg:#fff;
+            --pago:#007a5e; --pendente:#b45309; --glosado:#b91c1c;
+            --accent:#007a5e; --particular:#6d28d9; }
+    #rel-convenios-detalhado { display: block !important; }
+    #rel-convenios-resumido { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -180,6 +195,7 @@
   <button class="nav-tab"         onclick="switchTab('testes',this)">🫁 Testes Resp.</button>
   <button class="nav-tab"         onclick="switchTab('upload',this)">📂 Upload Repasse</button>
   <button class="nav-tab"         onclick="switchTab('resumo',this)">📊 Resumo</button>
+  <button class="nav-tab"         onclick="switchTab('relatorio',this)">📈 Relatório</button>
   <button class="nav-tab"         onclick="switchTab('glossario',this)">📖 Glossário TUSS</button>
 </nav>
 
@@ -555,6 +571,75 @@
   <div class="section-title">Glossário TUSS</div>
   <div class="section-desc">// Siglas, procedimentos e códigos configurados no sistema</div>
   <div class="glossario-grid" id="glossario-grid"></div>
+</div>
+
+<!-- ══ RELATÓRIO ══ -->
+<div id="sec-relatorio" class="section">
+
+  <!-- HEADER + CONTROLES -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:28px">
+    <div>
+      <div class="section-title">Relatório Mensal</div>
+      <div class="section-desc" style="margin-bottom:0">// Produção consolidada por período</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2)">Período:</label>
+      <select id="rel-mes" onchange="gerarRelatorio()" style="width:auto;padding:9px 14px;font-size:13px;border-radius:8px">
+        <option value="">Todos os períodos</option>
+      </select>
+      <button class="btn btn-secondary" onclick="exportRelatorio()" style="padding:9px 16px;font-size:12px">⬇ Exportar CSV</button>
+      <button class="btn btn-secondary" onclick="imprimirRelatorio()" style="padding:9px 16px;font-size:12px">🖨 Imprimir / PDF</button>
+    </div>
+  </div>
+
+  <!-- BLOCO IMPRIMÍVEL -->
+  <div id="rel-print-area">
+
+    <!-- 1. CARDS TOPO -->
+    <div id="rel-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px"></div>
+
+    <!-- 2. CONVÊNIOS -->
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="font-size:15px;margin-bottom:0">🏥 Produção por Convênio</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="toggleConvView('resumido')" id="btn-conv-res" class="btn btn-secondary" style="padding:5px 12px;font-size:11px;background:var(--accent);color:#0d1117">Resumido</button>
+          <button onclick="toggleConvView('detalhado')" id="btn-conv-det" class="btn btn-secondary" style="padding:5px 12px;font-size:11px">Detalhado</button>
+        </div>
+      </div>
+      <div id="rel-convenios-resumido"></div>
+      <div id="rel-convenios-detalhado" style="display:none"></div>
+    </div>
+
+    <!-- 3. PROCEDIMENTOS -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title" style="font-size:15px;margin-bottom:16px">🔬 Procedimentos Realizados</div>
+      <div id="rel-procedimentos"></div>
+    </div>
+
+    <!-- 4. PARTICULAR + CONSULTAS + TESTES -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-title" style="font-size:14px;margin-bottom:14px">🟣 Exames Particulares</div>
+        <div id="rel-particulares"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="font-size:14px;margin-bottom:14px">🩺 Consultas Particulares</div>
+        <div id="rel-consultas"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="font-size:14px;margin-bottom:14px">🫁 Testes Respiratórios</div>
+        <div id="rel-testes"></div>
+      </div>
+    </div>
+
+    <!-- 5. STATUS PAGAMENTO -->
+    <div class="card">
+      <div class="card-title" style="font-size:15px;margin-bottom:16px">📋 Status de Pagamento por Convênio</div>
+      <div id="rel-status-barras"></div>
+    </div>
+
+  </div><!-- /rel-print-area -->
 </div>
 
 </main>
@@ -955,7 +1040,7 @@ function atualizarUI(){
   atualizarHeader();renderRecentes();
   renderTabela('unimed');renderTabela('outros');
   renderParticular();renderConsultas();renderTestes();
-  atualizarMeses();
+  atualizarMeses();popularMesesRelatorio();
 }
 
 function setSyncStatus(state, label) {
@@ -976,6 +1061,7 @@ function switchTab(tab,btn){
   btn.classList.add('active');
   if(tab==='resumo') atualizarResumo();
   if(tab==='glossario') renderGlossario();
+  if(tab==='relatorio'){popularMesesRelatorio();gerarRelatorio();}
 }
 
 // FORM
@@ -1536,6 +1622,634 @@ function exportCSVTestes(){
   a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
   a.download=`endoaudit_testes_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();toast('✓ CSV exportado!');
+}
+
+// ══════════════════════════════════════════════════════════
+// RELATÓRIO MENSAL
+// ══════════════════════════════════════════════════════════
+let convView='resumido';
+
+function toggleConvView(v){
+  convView=v;
+  document.getElementById('rel-convenios-resumido').style.display  = v==='resumido'?'':'none';
+  document.getElementById('rel-convenios-detalhado').style.display = v==='detalhado'?'':'none';
+  document.getElementById('btn-conv-res').style.cssText += v==='resumido'?';background:var(--accent);color:#0d1117':';background:var(--surface2);color:var(--text)';
+  document.getElementById('btn-conv-det').style.cssText += v==='detalhado'?';background:var(--accent);color:#0d1117':';background:var(--surface2);color:var(--text)';
+}
+
+function popularMesesRelatorio(){
+  const todos=[
+    ...exames.map(e=>e.data),
+    ...particulares.map(p=>p.data),
+    ...consultas.map(c=>c.data),
+    ...testes.map(t=>t.data),
+  ].filter(Boolean).map(d=>d.slice(0,7));
+  const meses=[...new Set(todos)].sort().reverse();
+  const sel=document.getElementById('rel-mes');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todos os períodos</option>'+
+    meses.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${formatMes(m)}</option>`).join('');
+}
+
+function filtrarMes(lista,campo){
+  const mes=document.getElementById('rel-mes').value;
+  if(!mes) return lista;
+  return lista.filter(x=>x[campo]&&x[campo].slice(0,7)===mes);
+}
+
+function barPct(pct,cor){
+  return `<div style="flex:1;background:var(--surface2);border-radius:100px;height:7px;overflow:hidden;min-width:60px">
+    <div style="width:${pct}%;background:${cor};height:100%;border-radius:100px"></div>
+  </div>`;
+}
+
+function tabelaConv(rows){
+  if(!rows.length) return '<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+  return `<table style="width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:7px 8px;color:var(--text3);font-size:10px">CONVÊNIO</th>
+      <th style="text-align:center;padding:7px 6px;color:var(--text3);font-size:10px">TOTAL</th>
+      <th style="text-align:center;padding:7px 6px;color:var(--pago);font-size:10px">PAGO</th>
+      <th style="text-align:center;padding:7px 6px;color:var(--pendente);font-size:10px">PEND.</th>
+      <th style="text-align:center;padding:7px 6px;color:var(--glosado);font-size:10px">GLOS.</th>
+      <th style="text-align:center;padding:7px 6px;color:var(--text3);font-size:10px">%PAGO</th>
+    </tr></thead>
+    <tbody>${rows.map(([c,v],i)=>{
+      const pct=v.total?Math.round(v.pagos/v.total*100):0;
+      return `<tr style="border-bottom:1px solid var(--border)33;background:${i%2?'var(--surface2)':'transparent'}">
+        <td style="padding:7px 8px;font-weight:700;color:var(--text)">${c}</td>
+        <td style="text-align:center;padding:7px 6px;font-weight:700;color:var(--text)">${v.total}</td>
+        <td style="text-align:center;padding:7px 6px;color:var(--pago)">${v.pagos}</td>
+        <td style="text-align:center;padding:7px 6px;color:var(--pendente)">${v.pend}</td>
+        <td style="text-align:center;padding:7px 6px;color:var(--glosado)">${v.glos}</td>
+        <td style="text-align:center;padding:7px 6px;color:${pct===100?'var(--pago)':pct>=50?'var(--pendente)':'var(--glosado)'}">${pct}%</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function gerarRelatorio(){
+  const examesF    = filtrarMes(exames,'data');
+  const particF    = filtrarMes(particulares,'data');
+  const consultasF = filtrarMes(consultas,'data');
+  const testesF    = filtrarMes(testes,'data');
+  const linhasProc = examesF.flatMap(e=>e.linhas.filter(l=>l.tipo==='proc'));
+
+  // ── CARDS ─────────────────────────────────────────────────
+  const totalProc  = linhasProc.length;
+  const totalPagos = linhasProc.filter(l=>l.status==='Pago').length;
+  const recPartic  = particF.filter(p=>p.status==='Pago').reduce((s,p)=>s+Number(p.valor||0),0);
+  const recConsult = consultasF.filter(c=>c.status==='Pago').reduce((s,c)=>s+Number(c.valor||0),0);
+  const recTestes  = testesF.filter(t=>t.status==='Pago').reduce((s,t)=>s+Number(t.valor||0),0);
+  const recTotal   = recPartic+recConsult+recTestes;
+
+  document.getElementById('rel-cards').innerHTML=[
+    {l:'Procedimentos Convênio', v:totalProc,  s:`${totalPagos} pagos · ${totalProc-totalPagos} pendentes`, c:'var(--accent)'},
+    {l:'Receita Exames Part.',   v:'R$ '+recPartic.toFixed(2).replace('.',','),  s:particF.length+' exames', c:'var(--particular)'},
+    {l:'Receita Consultas',      v:'R$ '+recConsult.toFixed(2).replace('.',','), s:consultasF.length+' consultas', c:'#f59e0b'},
+    {l:'Receita Total Particular',v:'R$ '+recTotal.toFixed(2).replace('.',','),  s:'exames + consultas + testes', c:'var(--pago)'},
+  ].map(({l,v,s,c})=>`<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value" style="font-size:24px;color:${c}">${v}</div><div class="stat-sub">${s}</div></div>`).join('');
+
+  // ── CONVÊNIOS ─────────────────────────────────────────────
+  const porConv={};
+  examesF.forEach(e=>{
+    if(!porConv[e.convenio]) porConv[e.convenio]={total:0,pagos:0,pend:0,glos:0};
+    e.linhas.filter(l=>l.tipo==='proc').forEach(l=>{
+      porConv[e.convenio].total++;
+      if(l.status==='Pago')    porConv[e.convenio].pagos++;
+      if(l.status==='Pendente')porConv[e.convenio].pend++;
+      if(l.status==='Glosado') porConv[e.convenio].glos++;
+    });
+  });
+  const uV=porConv['Unimed']||{total:0,pagos:0,pend:0,glos:0};
+  const oAgg={total:0,pagos:0,pend:0,glos:0};
+  Object.entries(porConv).filter(([k])=>k!=='Unimed').forEach(([,v])=>{oAgg.total+=v.total;oAgg.pagos+=v.pagos;oAgg.pend+=v.pend;oAgg.glos+=v.glos;});
+  document.getElementById('rel-convenios-resumido').innerHTML=tabelaConv([['Unimed',uV],['Outros Convênios / COOPEND',oAgg]].filter(([,v])=>v.total>0));
+  const detRows=Object.entries(porConv).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('rel-convenios-detalhado').innerHTML=tabelaConv(detRows);
+
+  // ── PROCEDIMENTOS ─────────────────────────────────────────
+  const porProc={};
+  linhasProc.forEach(l=>{
+    if(!porProc[l.sigla]) porProc[l.sigla]={total:0,pagos:0,pend:0,glos:0};
+    porProc[l.sigla].total++;
+    if(l.status==='Pago')    porProc[l.sigla].pagos++;
+    if(l.status==='Pendente')porProc[l.sigla].pend++;
+    if(l.status==='Glosado') porProc[l.sigla].glos++;
+  });
+  const procRows=Object.entries(porProc).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('rel-procedimentos').innerHTML=procRows.length
+    ?`<table style="width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:7px 8px;color:var(--text3);font-size:10px">PROCEDIMENTO</th>
+        <th style="text-align:center;padding:7px 6px;color:var(--text3);font-size:10px">N</th>
+        <th style="text-align:center;padding:7px 6px;color:var(--text3);font-size:10px">% TOTAL</th>
+        <th style="padding:7px 12px;color:var(--text3);font-size:10px">DISTRIBUIÇÃO</th>
+        <th style="text-align:center;padding:7px 6px;color:var(--pago);font-size:10px">PAGO</th>
+        <th style="text-align:center;padding:7px 6px;color:var(--pendente);font-size:10px">PEND.</th>
+        <th style="text-align:center;padding:7px 6px;color:var(--glosado);font-size:10px">GLOS.</th>
+      </tr></thead>
+      <tbody>${procRows.map(([s,v],i)=>{
+        const pct=totalProc?Math.round(v.total/totalProc*100):0;
+        return `<tr style="border-bottom:1px solid var(--border)33;background:${i%2?'var(--surface2)':'transparent'}">
+          <td style="padding:7px 8px;font-weight:700;color:var(--accent)">${s}</td>
+          <td style="text-align:center;padding:7px 6px;font-weight:700;color:var(--text)">${v.total}</td>
+          <td style="text-align:center;padding:7px 6px;color:var(--text2)">${pct}%</td>
+          <td style="padding:7px 12px;min-width:120px">${barPct(pct,'var(--accent)')}</td>
+          <td style="text-align:center;padding:7px 6px;color:var(--pago)">${v.pagos}</td>
+          <td style="text-align:center;padding:7px 6px;color:var(--pendente)">${v.pend}</td>
+          <td style="text-align:center;padding:7px 6px;color:var(--glosado)">${v.glos}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`
+    :'<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+
+  // ── PARTICULARES ──────────────────────────────────────────
+  const porProcP={};
+  particF.forEach(p=>{if(!porProcP[p.proc])porProcP[p.proc]=0;porProcP[p.proc]++;});
+  document.getElementById('rel-particulares').innerHTML=particF.length
+    ?`<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.1">
+        <div>Total: <strong style="color:var(--text)">${particF.length}</strong></div>
+        <div style="color:var(--pago)">Pagos: <strong>${particF.filter(p=>p.status==='Pago').length}</strong></div>
+        <div style="color:var(--pendente)">Pendentes: <strong>${particF.filter(p=>p.status==='Pendente').length}</strong></div>
+        <div style="color:var(--accent)">Receita: <strong>R$ ${recPartic.toFixed(2).replace('.',',')}</strong></div>
+        <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+        ${Object.entries(porProcP).sort((a,b)=>b[1]-a[1]).map(([p,n])=>{
+          const pct=particF.length?Math.round(n/particF.length*100):0;
+          return `<div style="margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="color:var(--particular)">${p}</span>
+              <span style="color:var(--text)">${n} <span style="color:var(--text3)">(${pct}%)</span></span>
+            </div>${barPct(pct,'var(--particular)')}
+          </div>`;
+        }).join('')}
+      </div>`
+    :'<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+
+  // ── CONSULTAS ─────────────────────────────────────────────
+  const totC=consultasF.length;
+  const primVez=consultasF.filter(c=>c.primeiraVez==='SIM').length;
+  const retorno=totC-primVez;
+  const comConv=consultasF.filter(c=>c.temConvenio==='SIM').length;
+  const semConv=totC-comConv;
+  const pPrim=totC?Math.round(primVez/totC*100):0;
+  const pConv=totC?Math.round(comConv/totC*100):0;
+  document.getElementById('rel-consultas').innerHTML=totC
+    ?`<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.1">
+        <div>Total: <strong style="color:var(--text)">${totC}</strong></div>
+        <div style="color:var(--pago)">Pagas: <strong>${consultasF.filter(c=>c.status==='Pago').length}</strong></div>
+        <div style="color:var(--accent)">Receita: <strong>R$ ${recConsult.toFixed(2).replace('.',',')}</strong></div>
+        <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">Tipo de consulta</div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span>1ª consulta</span><span style="color:var(--accent)">${primVez} <span style="color:var(--text3)">(${pPrim}%)</span></span>
+          </div>${barPct(pPrim,'var(--accent)')}
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span>Retorno</span><span style="color:var(--text2)">${retorno} <span style="color:var(--text3)">(${100-pPrim}%)</span></span>
+          </div>${barPct(100-pPrim,'var(--text3)')}
+        </div>
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">Cobertura</div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span>Com convênio</span><span style="color:var(--pendente)">${comConv} <span style="color:var(--text3)">(${pConv}%)</span></span>
+          </div>${barPct(pConv,'var(--pendente)')}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span>Sem convênio</span><span style="color:var(--text2)">${semConv} <span style="color:var(--text3)">(${100-pConv}%)</span></span>
+          </div>${barPct(100-pConv,'var(--text3)')}
+        </div>
+      </div>`
+    :'<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+
+  // ── TESTES ────────────────────────────────────────────────
+  const totT=testesF.length;
+  const avt=testesF.filter(t=>t.solicitante==='Arthur/Vanessa').length;
+  const out=totT-avt;
+  const pAvt=totT?Math.round(avt/totT*100):0;
+  const porOutroSol={};
+  testesF.filter(t=>t.solicitante!=='Arthur/Vanessa').forEach(t=>{const s=t.solicitante||'Não informado';if(!porOutroSol[s])porOutroSol[s]=0;porOutroSol[s]++;});
+  document.getElementById('rel-testes').innerHTML=totT
+    ?`<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.1">
+        <div>Total: <strong style="color:var(--text)">${totT}</strong></div>
+        <div style="color:var(--pago)">Pagos: <strong>${testesF.filter(t=>t.status==='Pago').length}</strong></div>
+        <div style="color:var(--accent)">Receita: <strong>R$ ${recTestes.toFixed(2).replace('.',',')}</strong></div>
+        <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">Solicitantes</div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="color:var(--accent)">Arthur / Vanessa</span>
+            <span style="color:var(--accent)">${avt} <span style="color:var(--text3)">(${pAvt}%)</span></span>
+          </div>${barPct(pAvt,'var(--accent)')}
+        </div>
+        <div style="margin-bottom:${Object.keys(porOutroSol).length?'10px':'0'}">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="color:var(--text2)">Outros</span>
+            <span style="color:var(--text2)">${out} <span style="color:var(--text3)">(${100-pAvt}%)</span></span>
+          </div>${barPct(100-pAvt,'var(--outros)')}
+        </div>
+        ${Object.keys(porOutroSol).length?`
+          <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;margin-top:4px">Discriminação outros</div>
+          ${Object.entries(porOutroSol).sort((a,b)=>b[1]-a[1]).map(([s,n])=>{
+            const pct=out?Math.round(n/out*100):0;
+            return `<div style="display:flex;justify-content:space-between">
+              <span style="color:var(--text2)">${s}</span>
+              <span style="color:var(--text)">${n} <span style="color:var(--text3)">(${pct}%)</span></span>
+            </div>`;
+          }).join('')}`:''}
+      </div>`
+    :'<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+
+  // ── BARRAS STATUS ─────────────────────────────────────────
+  document.getElementById('rel-status-barras').innerHTML=detRows.length
+    ?detRows.map(([c,v])=>{
+        const pPago=v.total?Math.round(v.pagos/v.total*100):0;
+        const pPend=v.total?Math.round(v.pend/v.total*100):0;
+        const pGlos=v.total?Math.round(v.glos/v.total*100):0;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)33">
+          <span style="width:160px;font-weight:700;font-size:11px;color:var(--text);flex-shrink:0;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c}</span>
+          <div style="flex:1;display:flex;height:10px;border-radius:100px;overflow:hidden;background:var(--surface2)">
+            <div style="width:${pPago}%;background:var(--pago)" title="Pago ${pPago}%"></div>
+            <div style="width:${pPend}%;background:var(--pendente)" title="Pendente ${pPend}%"></div>
+            <div style="width:${pGlos}%;background:var(--glosado)" title="Glosado ${pGlos}%"></div>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--pago);width:34px;text-align:right;flex-shrink:0">${pPago}%</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);width:64px;text-align:right;flex-shrink:0">${v.total} proc.</span>
+        </div>`;
+      }).join('')+
+      `<div style="display:flex;gap:16px;margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--pago);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Pago</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--pendente);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Pendente</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--glosado);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Glosado</span>
+      </div>`
+    :'<span style="color:var(--text3);font-size:12px">Nenhum dado</span>';
+}
+
+function imprimirRelatorio(){ window.print(); }
+
+function exportRelatorio(){
+  const mes=document.getElementById('rel-mes').value;
+  const examesF    = filtrarMes(exames,'data');
+  const particF    = filtrarMes(particulares,'data');
+  const consultasF = filtrarMes(consultas,'data');
+  const testesF    = filtrarMes(testes,'data');
+  const linhasProc = examesF.flatMap(e=>e.linhas.filter(l=>l.tipo==='proc'));
+  const label      = mes?formatMes(mes):'Todos os períodos';
+  const L=[];
+
+  L.push(['ENDOAUDIT — RELATÓRIO MENSAL']);
+  L.push([label]); L.push([]);
+
+  L.push(['PRODUÇÃO POR CONVÊNIO — RESUMIDO']);
+  L.push(['Convênio','Total','Pagos','Pendentes','Glosados','% Pago']);
+  const porConv={};
+  examesF.forEach(e=>{
+    if(!porConv[e.convenio])porConv[e.convenio]={total:0,pagos:0,pend:0,glos:0};
+    e.linhas.filter(l=>l.tipo==='proc').forEach(l=>{
+      porConv[e.convenio].total++;
+      if(l.status==='Pago')    porConv[e.convenio].pagos++;
+      if(l.status==='Pendente')porConv[e.convenio].pend++;
+      if(l.status==='Glosado') porConv[e.convenio].glos++;
+    });
+  });
+  const uV=porConv['Unimed']||{total:0,pagos:0,pend:0,glos:0};
+  const oA={total:0,pagos:0,pend:0,glos:0};
+  Object.entries(porConv).filter(([k])=>k!=='Unimed').forEach(([,v])=>{oA.total+=v.total;oA.pagos+=v.pagos;oA.pend+=v.pend;oA.glos+=v.glos;});
+  [[' UNIMED',uV],[' OUTROS / COOPEND',oA]].forEach(([c,v])=>{
+    L.push([c,v.total,v.pagos,v.pend,v.glos,v.total?Math.round(v.pagos/v.total*100)+'%':'—']);
+  });
+  L.push([]); L.push(['PRODUÇÃO POR CONVÊNIO — DETALHADO']);
+  L.push(['Convênio','Total','Pagos','Pendentes','Glosados','% Pago']);
+  Object.entries(porConv).sort((a,b)=>b[1].total-a[1].total).forEach(([c,v])=>{
+    L.push([c,v.total,v.pagos,v.pend,v.glos,v.total?Math.round(v.pagos/v.total*100)+'%':'—']);
+  });
+  L.push([]);
+
+  L.push(['PROCEDIMENTOS']);
+  L.push(['Sigla','Total','% do Total','Pagos','Pendentes','Glosados']);
+  const porProc={};
+  linhasProc.forEach(l=>{
+    if(!porProc[l.sigla])porProc[l.sigla]={total:0,pagos:0,pend:0,glos:0};
+    porProc[l.sigla].total++;
+    if(l.status==='Pago')    porProc[l.sigla].pagos++;
+    if(l.status==='Pendente')porProc[l.sigla].pend++;
+    if(l.status==='Glosado') porProc[l.sigla].glos++;
+  });
+  Object.entries(porProc).sort((a,b)=>b[1].total-a[1].total).forEach(([s,v])=>{
+    L.push([s,v.total,linhasProc.length?Math.round(v.total/linhasProc.length*100)+'%':'—',v.pagos,v.pend,v.glos]);
+  });
+  L.push([]);
+
+  L.push(['EXAMES PARTICULARES']);
+  L.push(['Procedimento','Total','% do Total','Pagos']);
+  const recP=particF.filter(p=>p.status==='Pago').reduce((s,p)=>s+Number(p.valor||0),0);
+  const pPP={};
+  particF.forEach(p=>{if(!pPP[p.proc])pPP[p.proc]=0;pPP[p.proc]++;});
+  Object.entries(pPP).sort((a,b)=>b[1]-a[1]).forEach(([p,n])=>{
+    L.push([p,n,particF.length?Math.round(n/particF.length*100)+'%':'—',particF.filter(x=>x.proc===p&&x.status==='Pago').length]);
+  });
+  L.push(['TOTAL',particF.length,'100%',particF.filter(p=>p.status==='Pago').length]);
+  L.push(['Receita recebida','R$ '+recP.toFixed(2)]);
+  L.push([]);
+
+  L.push(['CONSULTAS PARTICULARES']);
+  const totC=consultasF.length;
+  const recC=consultasF.filter(c=>c.status==='Pago').reduce((s,c)=>s+Number(c.valor||0),0);
+  const pVez=consultasF.filter(c=>c.primeiraVez==='SIM').length;
+  const cConv=consultasF.filter(c=>c.temConvenio==='SIM').length;
+  L.push(['Total',totC]);
+  L.push(['Pagas',consultasF.filter(c=>c.status==='Pago').length]);
+  L.push(['Receita','R$ '+recC.toFixed(2)]);
+  L.push(['1ª consulta',pVez,totC?Math.round(pVez/totC*100)+'%':'—']);
+  L.push(['Retorno',totC-pVez,totC?Math.round((totC-pVez)/totC*100)+'%':'—']);
+  L.push(['Com convênio',cConv,totC?Math.round(cConv/totC*100)+'%':'—']);
+  L.push(['Sem convênio',totC-cConv,totC?Math.round((totC-cConv)/totC*100)+'%':'—']);
+  L.push([]);
+
+  L.push(['TESTES RESPIRATÓRIOS']);
+  const totT=testesF.length;
+  const recT=testesF.filter(t=>t.status==='Pago').reduce((s,t)=>s+Number(t.valor||0),0);
+  const avtN=testesF.filter(t=>t.solicitante==='Arthur/Vanessa').length;
+  L.push(['Total',totT]);
+  L.push(['Pagos',testesF.filter(t=>t.status==='Pago').length]);
+  L.push(['Receita','R$ '+recT.toFixed(2)]);
+  L.push(['Arthur/Vanessa',avtN,totT?Math.round(avtN/totT*100)+'%':'—']);
+  L.push(['Outros',totT-avtN,totT?Math.round((totT-avtN)/totT*100)+'%':'—']);
+  const pOS={};
+  testesF.filter(t=>t.solicitante!=='Arthur/Vanessa').forEach(t=>{const s=t.solicitante||'N/I';if(!pOS[s])pOS[s]=0;pOS[s]++;});
+  Object.entries(pOS).sort((a,b)=>b[1]-a[1]).forEach(([s,n])=>L.push(['  — '+s,n,totT?Math.round(n/totT*100)+'%':'—']));
+
+  const csv=L.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_relatorio_${mes||'completo'}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('✓ Relatório exportado!');
+}
+
+// INIT
+checarToken();
+
+  const linhasConv  = examesF.flatMap(e=>e.linhas.filter(l=>l.tipo==='proc'));
+  const linhasTaxa  = examesF.flatMap(e=>e.linhas.filter(l=>l.tipo==='taxa'));
+
+  // ── CARDS TOPO ──
+  const totalProc   = linhasConv.length;
+  const recPartic   = particF.filter(p=>p.status==='Pago').reduce((s,p)=>s+Number(p.valor||0),0);
+  const recConsult  = consultasF.filter(c=>c.status==='Pago').reduce((s,c)=>s+Number(c.valor||0),0);
+  const recTestes   = testesF.filter(t=>t.status==='Pago').reduce((s,t)=>s+Number(t.valor||0),0);
+  const recTotal    = recPartic+recConsult+recTestes;
+
+  document.getElementById('rel-cards').innerHTML = [
+    {label:'Procedimentos (conv.)', value:totalProc, sub:label, cor:'var(--accent)'},
+    {label:'Receita Particular', value:'R$ '+recPartic.toFixed(2).replace('.',','), sub:particF.length+' exames', cor:'var(--particular)'},
+    {label:'Receita Consultas', value:'R$ '+recConsult.toFixed(2).replace('.',','), sub:consultasF.length+' consultas', cor:'#f59e0b'},
+    {label:'Receita Total Particular', value:'R$ '+recTotal.toFixed(2).replace('.',','), sub:'exames+consultas+testes', cor:'var(--pago)'},
+  ].map(c=>`
+    <div class="stat-card">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-value" style="font-size:28px;color:${c.cor}">${c.value}</div>
+      <div class="stat-sub">${c.sub}</div>
+    </div>`).join('');
+
+  // ── CONVÊNIOS ──
+  const porConv = {};
+  examesF.forEach(e=>{
+    if(!porConv[e.convenio]) porConv[e.convenio]={total:0,pagos:0,pend:0,glos:0};
+    e.linhas.filter(l=>l.tipo==='proc').forEach(l=>{
+      porConv[e.convenio].total++;
+      if(l.status==='Pago')     porConv[e.convenio].pagos++;
+      if(l.status==='Pendente') porConv[e.convenio].pend++;
+      if(l.status==='Glosado')  porConv[e.convenio].glos++;
+    });
+  });
+  const convRows = Object.entries(porConv).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('rel-convenios').innerHTML = convRows.length
+    ? `<table style="width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px;color:var(--text3)">CONVÊNIO</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--text3)">TOTAL</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--pago)">PAGO</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--pendente)">PEND.</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--glosado)">GLOS.</th>
+        </tr></thead>
+        <tbody>${convRows.map(([c,v],i)=>`
+          <tr style="border-bottom:1px solid var(--border)44;background:${i%2?'var(--surface2)':'transparent'}">
+            <td style="padding:7px 8px;font-weight:700;color:var(--text)">${c}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--text)">${v.total}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--pago)">${v.pagos}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--pendente)">${v.pend}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--glosado)">${v.glos}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── PROCEDIMENTOS ──
+  const porProc = {};
+  linhasConv.forEach(l=>{
+    if(!porProc[l.sigla]) porProc[l.sigla]={total:0,pagos:0,pend:0,glos:0};
+    porProc[l.sigla].total++;
+    if(l.status==='Pago')     porProc[l.sigla].pagos++;
+    if(l.status==='Pendente') porProc[l.sigla].pend++;
+    if(l.status==='Glosado')  porProc[l.sigla].glos++;
+  });
+  const procRows = Object.entries(porProc).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('rel-procedimentos').innerHTML = procRows.length
+    ? `<table style="width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px;color:var(--text3)">PROCEDIMENTO</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--text3)">TOTAL</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--pago)">PAGO</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--pendente)">PEND.</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--glosado)">GLOS.</th>
+        </tr></thead>
+        <tbody>${procRows.map(([s,v],i)=>`
+          <tr style="border-bottom:1px solid var(--border)44;background:${i%2?'var(--surface2)':'transparent'}">
+            <td style="padding:7px 8px;font-weight:700;color:var(--accent)">${s}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--text)">${v.total}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--pago)">${v.pagos}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--pendente)">${v.pend}</td>
+            <td style="text-align:center;padding:7px 4px;color:var(--glosado)">${v.glos}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── PARTICULARES ──
+  const porProcPartic = {};
+  particF.forEach(p=>{
+    if(!porProcPartic[p.proc]) porProcPartic[p.proc]={total:0,receita:0};
+    porProcPartic[p.proc].total++;
+    if(p.status==='Pago') porProcPartic[p.proc].receita+=Number(p.valor||0);
+  });
+  document.getElementById('rel-particulares').innerHTML = particF.length
+    ? `<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2">
+        <div style="color:var(--text3)">Total: <strong style="color:var(--text)">${particF.length}</strong></div>
+        <div style="color:var(--pago)">Pagos: <strong>${particF.filter(p=>p.status==='Pago').length}</strong></div>
+        <div style="color:var(--pendente)">Pendentes: <strong>${particF.filter(p=>p.status==='Pendente').length}</strong></div>
+        <div style="color:var(--accent);margin-top:4px">Receita: <strong>R$ ${recPartic.toFixed(2).replace('.',',')}</strong></div>
+        <hr style="border-color:var(--border);margin:10px 0">
+        ${Object.entries(porProcPartic).sort((a,b)=>b[1].total-a[1].total).map(([p,v])=>
+          `<div style="display:flex;justify-content:space-between"><span style="color:var(--particular)">${p}</span><span style="color:var(--text)">${v.total}x</span></div>`
+        ).join('')}
+      </div>`
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── CONSULTAS ──
+  const primVez = consultasF.filter(c=>c.primeiraVez==='SIM').length;
+  const comConv = consultasF.filter(c=>c.temConvenio==='SIM').length;
+  document.getElementById('rel-consultas').innerHTML = consultasF.length
+    ? `<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2">
+        <div style="color:var(--text3)">Total: <strong style="color:var(--text)">${consultasF.length}</strong></div>
+        <div style="color:var(--pago)">Pagas: <strong>${consultasF.filter(c=>c.status==='Pago').length}</strong></div>
+        <div style="color:var(--accent)">Receita: <strong>R$ ${recConsult.toFixed(2).replace('.',',')}</strong></div>
+        <hr style="border-color:var(--border);margin:10px 0">
+        <div>1ª vez: <strong style="color:var(--accent)">${primVez}</strong> · Retorno: <strong>${consultasF.length-primVez}</strong></div>
+        <div>Com convênio: <strong style="color:var(--pendente)">${comConv}</strong> · Sem: <strong>${consultasF.length-comConv}</strong></div>
+      </div>`
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── TESTES ──
+  const porSol = {};
+  testesF.forEach(t=>{
+    const s=t.solicitante||'Não informado';
+    if(!porSol[s]) porSol[s]=0;
+    porSol[s]++;
+  });
+  document.getElementById('rel-testes').innerHTML = testesF.length
+    ? `<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2">
+        <div style="color:var(--text3)">Total: <strong style="color:var(--text)">${testesF.length}</strong></div>
+        <div style="color:var(--pago)">Pagos: <strong>${testesF.filter(t=>t.status==='Pago').length}</strong></div>
+        <div style="color:var(--accent)">Receita: <strong>R$ ${recTestes.toFixed(2).replace('.',',')}</strong></div>
+        <hr style="border-color:var(--border);margin:10px 0">
+        ${Object.entries(porSol).sort((a,b)=>b[1]-a[1]).map(([s,n])=>
+          `<div style="display:flex;justify-content:space-between"><span style="color:${s==='Arthur/Vanessa'?'var(--accent)':'var(--text2)'}">${s}</span><strong style="color:var(--text)">${n}</strong></div>`
+        ).join('')}
+      </div>`
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── STATUS POR CONVÊNIO ──
+  document.getElementById('rel-status-convenio').innerHTML = convRows.length
+    ? convRows.map(([c,v])=>{
+        const pct = v.total ? Math.round(v.pagos/v.total*100) : 0;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)44">
+          <span style="width:160px;font-weight:700;font-size:12px;color:var(--text);flex-shrink:0">${c}</span>
+          <div style="flex:1;background:var(--surface2);border-radius:100px;height:8px;overflow:hidden">
+            <div style="width:${pct}%;background:var(--pago);height:100%;border-radius:100px;transition:width 0.5s"></div>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--pago);width:36px;text-align:right">${pct}%</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);width:80px;text-align:right">${v.pagos}/${v.total} pagos</span>
+        </div>`;
+      }).join('')
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── CLÍNICAS ──
+  const porClinica = {};
+  particF.forEach(p=>{
+    if(!porClinica[p.clinica]) porClinica[p.clinica]={total:0,receita:0};
+    porClinica[p.clinica].total++;
+    if(p.status==='Pago') porClinica[p.clinica].receita+=Number(p.valor||0);
+  });
+  const clinicaCor={'Premiere':'#f59e0b','Gastroharmony':'#ec4899','Gastroinn':'#8b5cf6'};
+  document.getElementById('rel-clinicas').innerHTML = Object.keys(porClinica).length
+    ? Object.entries(porClinica).sort((a,b)=>b[1].total-a[1].total).map(([c,v])=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)44">
+          <span style="font-weight:700;font-size:13px;color:${clinicaCor[c]||'var(--text)'}">${c}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${v.total} exame${v.total!==1?'s':''}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">R$ ${v.receita.toFixed(2).replace('.',',')}</span>
+        </div>`).join('')
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+
+  // ── SOLICITANTES ──
+  document.getElementById('rel-solicitantes').innerHTML = Object.keys(porSol).length
+    ? Object.entries(porSol).sort((a,b)=>b[1]-a[1]).map(([s,n])=>{
+        const pct = testesF.length ? Math.round(n/testesF.length*100) : 0;
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--border)44">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-weight:700;font-size:12px;color:${s==='Arthur/Vanessa'?'var(--accent)':'var(--text)'}">${s}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${n} (${pct}%)</span>
+          </div>
+          <div style="background:var(--surface2);border-radius:100px;height:6px;overflow:hidden">
+            <div style="width:${pct}%;background:${s==='Arthur/Vanessa'?'var(--accent)':'var(--outros)'};height:100%;border-radius:100px"></div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<span style="color:var(--text3)">Nenhum dado no período</span>';
+}
+
+function exportRelatorio() {
+  const mes = document.getElementById('rel-mes').value;
+  const examesF    = filtrarMes(exames,'data');
+  const particF    = filtrarMes(particulares,'data');
+  const consultasF = filtrarMes(consultas,'data');
+  const testesF    = filtrarMes(testes,'data');
+
+  const linhas = [];
+
+  // Cabeçalho
+  linhas.push(['ENDOAUDIT — RELATÓRIO MENSAL']);
+  linhas.push([mes ? formatMes(mes) : 'Todos os períodos']);
+  linhas.push([]);
+
+  // Convênios
+  linhas.push(['PRODUÇÃO POR CONVÊNIO']);
+  linhas.push(['Convênio','Total','Pagos','Pendentes','Glosados']);
+  const porConv={};
+  examesF.forEach(e=>{
+    if(!porConv[e.convenio])porConv[e.convenio]={total:0,pagos:0,pend:0,glos:0};
+    e.linhas.filter(l=>l.tipo==='proc').forEach(l=>{
+      porConv[e.convenio].total++;
+      if(l.status==='Pago')    porConv[e.convenio].pagos++;
+      if(l.status==='Pendente')porConv[e.convenio].pend++;
+      if(l.status==='Glosado') porConv[e.convenio].glos++;
+    });
+  });
+  Object.entries(porConv).sort((a,b)=>b[1].total-a[1].total).forEach(([c,v])=>linhas.push([c,v.total,v.pagos,v.pend,v.glos]));
+  linhas.push([]);
+
+  // Procedimentos
+  linhas.push(['PROCEDIMENTOS']);
+  linhas.push(['Sigla','Total','Pagos','Pendentes','Glosados']);
+  const porProc={};
+  examesF.flatMap(e=>e.linhas.filter(l=>l.tipo==='proc')).forEach(l=>{
+    if(!porProc[l.sigla])porProc[l.sigla]={total:0,pagos:0,pend:0,glos:0};
+    porProc[l.sigla].total++;
+    if(l.status==='Pago')    porProc[l.sigla].pagos++;
+    if(l.status==='Pendente')porProc[l.sigla].pend++;
+    if(l.status==='Glosado') porProc[l.sigla].glos++;
+  });
+  Object.entries(porProc).sort((a,b)=>b[1].total-a[1].total).forEach(([s,v])=>linhas.push([s,v.total,v.pagos,v.pend,v.glos]));
+  linhas.push([]);
+
+  // Particulares
+  linhas.push(['EXAMES PARTICULARES']);
+  linhas.push(['Total','Pagos','Receita Recebida']);
+  const recP=particF.filter(p=>p.status==='Pago').reduce((s,p)=>s+Number(p.valor||0),0);
+  linhas.push([particF.length,particF.filter(p=>p.status==='Pago').length,'R$ '+recP.toFixed(2)]);
+  linhas.push([]);
+
+  // Consultas
+  linhas.push(['CONSULTAS PARTICULARES']);
+  linhas.push(['Total','Pagas','Primeira vez','Com convênio','Receita']);
+  const recC=consultasF.filter(c=>c.status==='Pago').reduce((s,c)=>s+Number(c.valor||0),0);
+  linhas.push([consultasF.length,consultasF.filter(c=>c.status==='Pago').length,consultasF.filter(c=>c.primeiraVez==='SIM').length,consultasF.filter(c=>c.temConvenio==='SIM').length,'R$ '+recC.toFixed(2)]);
+  linhas.push([]);
+
+  // Testes
+  linhas.push(['TESTES RESPIRATÓRIOS']);
+  linhas.push(['Total','Pagos','Receita','Solicitante','Qtd']);
+  const recT=testesF.filter(t=>t.status==='Pago').reduce((s,t)=>s+Number(t.valor||0),0);
+  const porSol={};
+  testesF.forEach(t=>{const s=t.solicitante||'N/I';if(!porSol[s])porSol[s]=0;porSol[s]++;});
+  const solEntries=Object.entries(porSol).sort((a,b)=>b[1]-a[1]);
+  linhas.push([testesF.length,testesF.filter(t=>t.status==='Pago').length,'R$ '+recT.toFixed(2),solEntries[0]?solEntries[0][0]:'—',solEntries[0]?solEntries[0][1]:'—']);
+  solEntries.slice(1).forEach(([s,n])=>linhas.push(['','','',s,n]));
+
+  const csv=linhas.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download=`endoaudit_relatorio_${mes||'completo'}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast('✓ Relatório exportado!');
 }
 
 // INIT
