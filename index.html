@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EndoAudit — Sistema de Conferência de Exames</title>
+<script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof onGISLoad==='function')onGISLoad()"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -155,7 +156,7 @@
     <div class="login-logo">🔬</div>
     <div class="login-title">EndoAudit</div>
     <div class="login-sub">// Sistema de Conferência de Exames Endoscópicos</div>
-    <button class="google-btn" onclick="iniciarLogin()">
+    <button class="google-btn" id="btn-google-login" onclick="iniciarLogin()">
       <svg class="google-icon" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -164,6 +165,7 @@
       </svg>
       Entrar com Google
     </button>
+    <p id="login-status" style="font-size:12px;color:var(--text3);margin-top:12px;min-height:18px"></p>
     <p class="login-note">Seus dados ficam salvos no Google Sheets da sua conta.<br>Acesse de qualquer dispositivo.</p>
   </div>
 </div>
@@ -698,53 +700,78 @@ let procRowId=0, taxaRowId=0;
 let syncTimeout=null;
 
 // ══════════════════════════════════════════════════════════
-// GOOGLE AUTH
+// GOOGLE AUTH — Google Identity Services (GIS) Token Client
 // ══════════════════════════════════════════════════════════
+let tokenClient = null;
+
 function iniciarLogin() {
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: location.href.split('?')[0].split('#')[0],
-    response_type: 'token',
-    scope: SCOPES,
-    prompt: 'select_account',
-  });
-  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+  const btn = document.getElementById('btn-google-login');
+  const status = document.getElementById('login-status');
+  btn.disabled = true;
+  status.textContent = 'Aguardando autorização do Google...';
+
+  if (!tokenClient) {
+    status.textContent = 'Carregando biblioteca Google...';
+    // GIS still loading — retry after short delay
+    setTimeout(iniciarLogin, 800);
+    btn.disabled = false;
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
 function logout() {
-  accessToken=null; tokenExpiry=0;
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null; tokenExpiry = 0;
   sessionStorage.removeItem('ea_token');
   sessionStorage.removeItem('ea_expiry');
-  location.hash='';
-  document.getElementById('login-screen').style.display='flex';
-  setSyncStatus('idle');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-status').textContent = '';
+  document.getElementById('btn-google-login').disabled = false;
+  setSyncStatus('idle', 'Não conectado');
 }
 
-function checarToken() {
-  // 1. hash da URL (retorno OAuth)
-  const hash = location.hash.substring(1);
-  if (hash) {
-    const p = new URLSearchParams(hash);
-    const t = p.get('access_token');
-    const e = p.get('expires_in');
-    if (t) {
-      accessToken  = t;
-      tokenExpiry  = Date.now() + (parseInt(e||3600)-60)*1000;
-      sessionStorage.setItem('ea_token', t);
+function onGISLoad() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      const btn    = document.getElementById('btn-google-login');
+      const status = document.getElementById('login-status');
+      btn.disabled = false;
+      if (resp.error) {
+        status.textContent = 'Erro: ' + resp.error;
+        return;
+      }
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + (parseInt(resp.expires_in || 3600) - 60) * 1000;
+      sessionStorage.setItem('ea_token', accessToken);
       sessionStorage.setItem('ea_expiry', tokenExpiry);
-      history.replaceState(null,'',location.pathname);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('btn-sync').disabled = false;
+      setSyncStatus('ok', 'Conectado');
+      carregarDados();
+    },
+    error_callback: (err) => {
+      document.getElementById('btn-google-login').disabled = false;
+      document.getElementById('login-status').textContent = 'Cancelado ou erro de acesso.';
     }
-  }
-  // 2. sessão salva
-  if (!accessToken) {
-    const st = sessionStorage.getItem('ea_token');
-    const se = parseInt(sessionStorage.getItem('ea_expiry')||'0');
-    if (st && Date.now() < se) { accessToken=st; tokenExpiry=se; }
-  }
-  if (accessToken) {
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('btn-sync').disabled=false;
-    setSyncStatus('ok','Conectado');
+  });
+  // Check for saved session
+  checarSessaoSalva();
+}
+
+function checarSessaoSalva() {
+  const st = sessionStorage.getItem('ea_token');
+  const se = parseInt(sessionStorage.getItem('ea_expiry') || '0');
+  if (st && Date.now() < se) {
+    accessToken  = st;
+    tokenExpiry  = se;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('btn-sync').disabled = false;
+    setSyncStatus('ok', 'Conectado');
     carregarDados();
   }
 }
@@ -1988,10 +2015,14 @@ function exportRelatorio(){
   toast('✓ Relatório exportado!');
 }
 
-// INIT
-checarToken();
-// INIT
-checarToken();
+// INIT — GIS carrega via script tag async, chama onGISLoad quando pronto
+window.addEventListener('load', () => {
+  if (typeof google !== 'undefined' && google.accounts) {
+    onGISLoad();
+  }
+});
+// Fallback: GIS chama este callback quando termina de carregar
+function onload_gis() { onGISLoad(); }
 </script>
 </body>
 </html>
