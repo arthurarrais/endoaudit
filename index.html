@@ -1007,9 +1007,9 @@ async function cruzarDados(repasse, meta) {
         : (GLOSSARIO.find(g=>g.sigla===l.sigla)||{codigos:[]}).codigos;
 
       const match=repasse.find(r=>{
-        const nOk=norm(r.nome)===nN;
-        const dOk=r.data===e.data;
-        const tOk=r.codigo ? codigosDoGrupo.includes(r.codigo) : true;
+        const nOk = norm(r.nome)===nN || nomesCompativeis(r.nome, e.nome);
+        const dOk = r.data===e.data;
+        const tOk = r.codigo ? codigosDoGrupo.includes(r.codigo) : true;
         return nOk&&dOk&&tOk;
       });
       if(match){
@@ -1270,8 +1270,20 @@ function renderGlossario(){
 }
 
 // UPLOAD CSV
+function parseCSVLine(line, sep) {
+  const cells=[]; let cur='', inQuote=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){inQuote=!inQuote;}
+    else if(ch===sep&&!inQuote){cells.push(cur);cur='';}
+    else{cur+=ch;}
+  }
+  cells.push(cur);
+  return cells;
+}
+
 function handleCSV(event){
-  const file=event.target.files[0];if(!file)return;
+  const file=event.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=e=>{
     try{
@@ -1279,15 +1291,30 @@ function handleCSV(event){
       const linhas=text.split('\n').map(l=>l.trim()).filter(Boolean);
       if(linhas.length<2){toast('CSV sem dados suficientes','var(--glosado)');return;}
       const sep=linhas[0].includes(';')?';':',';
-      const hdrs=linhas[0].split(sep).map(h=>h.trim().toLowerCase().replace(/['"]/g,'').replace(/\s+/g,'_'));
-      const nC=hdrs.findIndex(h=>['nome','paciente','beneficiario','beneficiário','patient'].includes(h));
-      const dC=hdrs.findIndex(h=>['data','data_exame','competencia','competência','date'].includes(h));
-      const tC=hdrs.findIndex(h=>['codigo','tuss','cod_tuss','procedimento','cod','code','codigo_tuss'].includes(h));
-      if(nC<0){toast('Coluna "nome" não encontrada','var(--glosado)');return;}
-      if(dC<0){toast('Coluna "data" não encontrada','var(--glosado)');return;}
-      const repasse=linhas.slice(1).map(l=>{const cells=l.split(sep).map(c=>c.trim().replace(/^["']|["']$/g,''));return{nome:cells[nC]||'',data:parseData(cells[dC]||''),codigo:tC>=0?cells[tC].replace(/\D/g,''):null};}).filter(r=>r.nome&&r.data);
-      cruzarDados(repasse,`CSV — ${file.name} — ${repasse.length} linhas`);
-    }catch(err){toast('Erro CSV: '+err.message,'var(--glosado)');}
+
+      // Normaliza cabeçalhos: remove acentos, aspas, espaços
+      const hdrs=linhas[0].split(sep).map(h=>h.trim().replace(/^["']|["']$/g,'')
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_'));
+
+      // Colunas — inclui variações da Unimed
+      const nC=hdrs.findIndex(h=>['nome','paciente','beneficiario','patient','segurado','nome_beneficiario'].includes(h));
+      const dC=hdrs.findIndex(h=>['data','data_exame','competencia','date','data_atendimento','data_realizacao'].includes(h));
+      const tC=hdrs.findIndex(h=>['codigo','tuss','cod_tuss','procedimento','cod','code','codigo_tuss','codigo_servico','servico','cod_servico'].includes(h));
+
+      if(nC<0){toast('Coluna de nome não encontrada.\nColunas detectadas: '+hdrs.join(', '),'var(--glosado)');return;}
+      if(dC<0){toast('Coluna de data não encontrada.\nColunas detectadas: '+hdrs.join(', '),'var(--glosado)');return;}
+
+      const repasse=linhas.slice(1).map(l=>{
+        const cells=parseCSVLine(l,sep);
+        const nomeRaw=maiusc((cells[nC]||'').replace(/^["']|["']$/g,'').trim());
+        // Data: aceita DD/MM/AAAA HH:MM:SS — pega só a parte da data
+        const dataRaw=(cells[dC]||'').replace(/^["']|["']$/g,'').trim().split(' ')[0];
+        const codRaw=tC>=0?(cells[tC]||'').replace(/^["']|["']$/g,'').trim().replace(/\D/g,''):'';
+        return {nome:nomeRaw, data:parseData(dataRaw), codigo:codRaw||null};
+      }).filter(r=>r.nome&&r.data&&r.nome!=='BENEF NAO CADASTRADO');
+
+      cruzarDados(repasse,`CSV — ${file.name} — ${repasse.length} linhas lidas`);
+    }catch(err){toast('Erro CSV: '+err.message,'var(--glosado)');console.error(err);}
   };
   reader.readAsText(file,'UTF-8');
 }
@@ -1338,8 +1365,20 @@ function limparTudo(){
   exames=[];atualizarUI();toast('Cache local limpo','var(--pendente)');
 }
 
-// UTILS
-function maiusc(s){return(s||'').toUpperCase().trim();}
+// Verifica se dois nomes são suficientemente similares
+// Lida com abreviações: "JOYCE LYARA N BRITO" vs "JOYCE LYARA NUNES BRITO"
+function nomesCompativeis(nomeRepasse, nomeCadastro) {
+  const a = norm(nomeRepasse).split(' ').filter(Boolean);
+  const b = norm(nomeCadastro).split(' ').filter(Boolean);
+  if(a.length===0||b.length===0) return false;
+  // Primeiro e último nome devem bater
+  if(a[0]!==b[0]) return false;
+  if(a[a.length-1]!==b[b.length-1]) return false;
+  // Palavras do menor nome devem aparecer no maior (como iniciais ou palavras completas)
+  const menor=a.length<=b.length?a:b;
+  const maior=a.length<=b.length?b:a;
+  return menor.every(p=>maior.some(q=>q===p||q.startsWith(p[0]+'')&&p.length===1));
+}
 function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m1)return`${m1[3]}-${m1[2]}-${m1[1]}`;const m2=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
 function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
