@@ -694,15 +694,28 @@ function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test
 function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
 function formatMes(ym){const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];const[y,m]=ym.split('-');return ms[parseInt(m)-1]+'/'+y;}
 function toast(msg,bg){const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg||'var(--accent)';t.style.color=(bg&&bg!=='var(--accent)')?'#fff':'#0d1117';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3400);}
-function nomesCompativeis(nomeRepasse,nomeCadastro){
-  const a=norm(nomeRepasse).split(' ').filter(Boolean);
-  const b=norm(nomeCadastro).split(' ').filter(Boolean);
+function nomesCompativeis(nomeRepasse, nomeCadastro) {
+  const a = norm(nomeRepasse).split(' ').filter(w=>w.length>1); // palavras do repasse
+  const b = norm(nomeCadastro).split(' ').filter(w=>w.length>1); // palavras do cadastro
   if(!a.length||!b.length) return false;
+
+  // Primeiro nome deve sempre bater exatamente
   if(a[0]!==b[0]) return false;
-  if(a[a.length-1]!==b[b.length-1]) return false;
-  const menor=a.length<=b.length?a:b;
-  const maior=a.length<=b.length?b:a;
-  return menor.every(p=>maior.some(q=>q===p||(p.length===1&&q.startsWith(p))));
+
+  // Conta quantas palavras do cadastro aparecem no repasse
+  // (como palavra completa OU como inicial de uma palavra)
+  let matches=0;
+  for(const pb of b){
+    const found=a.some(pa=>
+      pa===pb ||                    // palavra completa igual
+      (pb.length===1&&pa.startsWith(pb)) || // cadastro tem inicial, repasse tem completo
+      (pa.length===1&&pb.startsWith(pa))    // repasse tem inicial, cadastro tem completo
+    );
+    if(found) matches++;
+  }
+
+  // Aceita se pelo menos 2 palavras do cadastro foram encontradas no repasse
+  return matches>=2;
 }
 
 // ══════════════════════════════════════════════════════════
