@@ -1027,14 +1027,12 @@ async function removerLinha(exameId, linhaIdx) {
 // CRUZAMENTO
 // ══════════════════════════════════════════════════════════
 async function cruzarDados(repasse, meta) {
-  let achou=0,naoAchou=0;
+  let achou=0, naoAchou=0, glosados=0;
   const log=[];
   exames.forEach(e=>{
     const nN=norm(e.nome);
     e.linhas.forEach(l=>{
-      if(l.status==='Glosado') return;
-      // Para taxas (código fixo), cruza pelo código exato
-      // Para procedimentos, aceita qualquer código do grupo TUSS da sigla
+      if(l.status==='Glosado') return; // não sobrescreve glosa manual
       const codigosDoGrupo = l.tipo==='taxa'
         ? [l.codigo]
         : (GLOSSARIO.find(g=>g.sigla===l.sigla)||{codigos:[]}).codigos;
@@ -1045,12 +1043,19 @@ async function cruzarDados(repasse, meta) {
         const tOk = r.codigo ? codigosDoGrupo.includes(r.codigo) : true;
         return nOk&&dOk&&tOk;
       });
+
       if(match){
-        l.status='Pago';
-        // Registra o código exato encontrado no repasse
-        if(match.codigo && l.tipo==='proc') l.codigo=match.codigo;
-        achou++;
-        log.push(`<span style="color:var(--pago)">✓ PAGO</span> — ${e.nome} · ${formatData(e.data)} · ${l.sigla}${l.codigo?' <span class="tuss-chip">'+l.codigo+'</span>':''}`);
+        if(match.glosado){
+          l.status='Glosado';
+          if(match.codigo && l.tipo==='proc') l.codigo=match.codigo;
+          glosados++;
+          log.push(`<span style="color:var(--glosado)">✕ GLOSADO</span> — ${e.nome} · ${formatData(e.data)} · <span class="tuss-chip">${l.codigo||l.sigla}</span> (${l.sigla})`);
+        } else {
+          l.status='Pago';
+          if(match.codigo && l.tipo==='proc') l.codigo=match.codigo;
+          achou++;
+          log.push(`<span style="color:var(--pago)">✓ PAGO</span> — ${e.nome} · ${formatData(e.data)} · <span class="tuss-chip">${l.codigo||l.sigla}</span> (${l.sigla})`);
+        }
       } else {
         l.status='Pendente'; naoAchou++;
         log.push(`<span style="color:var(--pendente)">⏳ PENDENTE</span> — ${e.nome} · ${formatData(e.data)} · ${l.sigla}`);
@@ -1059,17 +1064,11 @@ async function cruzarDados(repasse, meta) {
   });
   atualizarUI();
   document.getElementById('upload-resultado').style.display='';
-  document.getElementById('upload-meta').textContent=meta+` | ✓ ${achou} pagos · ⏳ ${naoAchou} pendentes`;
+  document.getElementById('upload-meta').textContent=meta+` | ✓ ${achou} pagos · ⏳ ${naoAchou} pendentes · ✕ ${glosados} glosados`;
   document.getElementById('upload-log').innerHTML=log.join('<br>')||'<span style="color:var(--text3)">Nenhum exame para cruzar.</span>';
-  toast(`Cruzamento: ${achou} pagos · ${naoAchou} pendentes — sincronizando...`);
-  // Sincronizar todos os status alterados
+  toast(`✓ ${achou} pagos · ⏳ ${naoAchou} pendentes · ✕ ${glosados} glosados`);
   setSyncStatus('syncing','Enviando ao Sheets...');
   try {
-    const uLinhas=[], oLinhas=[];
-    exames.forEach(e=>{
-      const aba=e.grupo==='unimed'?ABA_UNIMED:ABA_OUTROS;
-      (aba===ABA_UNIMED?uLinhas:oLinhas).push(e);
-    });
     await syncStatusMassa(ABA_UNIMED, exames.filter(e=>e.grupo==='unimed'));
     await syncStatusMassa(ABA_OUTROS, exames.filter(e=>e.grupo==='outros'));
     setSyncStatus('ok','Sincronizado às '+horaAtual());
@@ -1315,6 +1314,11 @@ function parseCSVLine(line, sep) {
   return cells;
 }
 
+function parseValorBR(s){
+  // Converte "1.234,56" ou "0,00" para float
+  return parseFloat((s||'0').replace(/\./g,'').replace(',','.')) || 0;
+}
+
 function handleCSV(event){
   const file=event.target.files[0]; if(!file) return;
   const reader=new FileReader();
@@ -1325,28 +1329,42 @@ function handleCSV(event){
       if(linhas.length<2){toast('CSV sem dados suficientes','var(--glosado)');return;}
       const sep=linhas[0].includes(';')?';':',';
 
-      // Normaliza cabeçalhos: remove acentos, aspas, espaços
-      const hdrs=linhas[0].split(sep).map(h=>h.trim().replace(/^["']|["']$/g,'')
+      // Normaliza cabeçalhos
+      const hdrs=linhas[0].split(sep).map(h=>h.trim().replace(/^["'\uFEFF]|["']$/g,'')
         .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_'));
 
-      // Colunas — inclui variações da Unimed
-      const nC=hdrs.findIndex(h=>['nome','paciente','beneficiario','patient','segurado','nome_beneficiario'].includes(h));
-      const dC=hdrs.findIndex(h=>['data','data_exame','competencia','date','data_atendimento','data_realizacao'].includes(h));
-      const tC=hdrs.findIndex(h=>['codigo','tuss','cod_tuss','procedimento','cod','code','codigo_tuss','codigo_servico','servico','cod_servico'].includes(h));
+      const nC  = hdrs.findIndex(h=>['nome','paciente','beneficiario','patient','segurado','nome_beneficiario'].includes(h));
+      const dC  = hdrs.findIndex(h=>['data','data_exame','competencia','date','data_atendimento','data_realizacao'].includes(h));
+      const tC  = hdrs.findIndex(h=>['codigo','tuss','cod_tuss','procedimento','cod','code','codigo_tuss','codigo_servico','servico','cod_servico'].includes(h));
+      // Colunas de glosa da Unimed
+      const qtPC= hdrs.findIndex(h=>['qt_paga','qtd_paga','quantidade_paga'].includes(h));
+      const subC= hdrs.findIndex(h=>['subtotal'].includes(h));
+      const glsC= hdrs.findIndex(h=>['mensagem_glosa','glosa','motivo_glosa'].includes(h));
 
-      if(nC<0){toast('Coluna de nome não encontrada.\nColunas detectadas: '+hdrs.join(', '),'var(--glosado)');return;}
-      if(dC<0){toast('Coluna de data não encontrada.\nColunas detectadas: '+hdrs.join(', '),'var(--glosado)');return;}
+      if(nC<0){toast('Coluna de nome não encontrada.\nColunas: '+hdrs.join(', '),'var(--glosado)');return;}
+      if(dC<0){toast('Coluna de data não encontrada.\nColunas: '+hdrs.join(', '),'var(--glosado)');return;}
 
       const repasse=linhas.slice(1).map(l=>{
         const cells=parseCSVLine(l,sep);
-        const nomeRaw=maiusc((cells[nC]||'').replace(/^["']|["']$/g,'').trim());
-        // Data: aceita DD/MM/AAAA HH:MM:SS — pega só a parte da data
-        const dataRaw=(cells[dC]||'').replace(/^["']|["']$/g,'').trim().split(' ')[0];
-        const codRaw=tC>=0?(cells[tC]||'').replace(/^["']|["']$/g,'').trim().replace(/\D/g,''):'';
-        return {nome:nomeRaw, data:parseData(dataRaw), codigo:codRaw||null};
-      }).filter(r=>r.nome&&r.data&&r.nome!=='BENEF NAO CADASTRADO');
+        const nomeRaw = maiusc((cells[nC]||'').replace(/^["']|["']$/g,'').trim());
+        const dataRaw = (cells[dC]||'').replace(/^["']|["']$/g,'').trim().split(' ')[0];
+        const codRaw  = tC>=0?(cells[tC]||'').replace(/^["']|["']$/g,'').trim().replace(/\D/g,''):'';
+        // Detecta glosa: Qt_Paga=0 OU Subtotal=0 OU Mensagem_Glosa preenchida
+        const qtPaga  = qtPC>=0 ? parseValorBR((cells[qtPC]||'').replace(/^["']|["']$/g,'')) : 1;
+        const subtotal= subC>=0 ? parseValorBR((cells[subC]||'').replace(/^["']|["']$/g,'')) : 1;
+        const msgGlosa= glsC>=0 ? (cells[glsC]||'').replace(/^["']|["']$/g,'').trim() : '';
+        const glosado = (qtPaga===0 && subtotal===0) || msgGlosa.length>0;
 
-      cruzarDados(repasse,`CSV — ${file.name} — ${repasse.length} linhas lidas`);
+        return {
+          nome: nomeRaw,
+          data: parseData(dataRaw),
+          codigo: codRaw||null,
+          glosado
+        };
+      }).filter(r=>r.nome&&r.data&&!['BENEF NAO CADASTRADO'].includes(r.nome));
+
+      const totalGlosas=repasse.filter(r=>r.glosado).length;
+      cruzarDados(repasse,`CSV — ${file.name} — ${repasse.length} linhas lidas (${totalGlosas} glosas detectadas)`);
     }catch(err){toast('Erro CSV: '+err.message,'var(--glosado)');console.error(err);}
   };
   reader.readAsText(file,'UTF-8');
