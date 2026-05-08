@@ -686,6 +686,26 @@ const CODE_MAP={};
 [...GLOSSARIO,...TAXAS_SALA].forEach(g=>g.codigos.forEach(c=>{CODE_MAP[c]=g;}));
 
 // ══════════════════════════════════════════════════════════
+// UTILS — definidas cedo para estarem disponíveis em todo o código
+// ══════════════════════════════════════════════════════════
+function maiusc(s){return(s||'').toUpperCase().trim();}
+function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m1)return`${m1[3]}-${m1[2]}-${m1[1]}`;const m2=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
+function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
+function formatMes(ym){const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];const[y,m]=ym.split('-');return ms[parseInt(m)-1]+'/'+y;}
+function toast(msg,bg){const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg||'var(--accent)';t.style.color=(bg&&bg!=='var(--accent)')?'#fff':'#0d1117';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3400);}
+function nomesCompativeis(nomeRepasse,nomeCadastro){
+  const a=norm(nomeRepasse).split(' ').filter(Boolean);
+  const b=norm(nomeCadastro).split(' ').filter(Boolean);
+  if(!a.length||!b.length) return false;
+  if(a[0]!==b[0]) return false;
+  if(a[a.length-1]!==b[b.length-1]) return false;
+  const menor=a.length<=b.length?a:b;
+  const maior=a.length<=b.length?b:a;
+  return menor.every(p=>maior.some(q=>q===p||(p.length===1&&q.startsWith(p))));
+}
+
+// ══════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════
 let exames = [];
@@ -1367,25 +1387,6 @@ function limparTudo(){
 
 // Verifica se dois nomes são suficientemente similares
 // Lida com abreviações: "JOYCE LYARA N BRITO" vs "JOYCE LYARA NUNES BRITO"
-function nomesCompativeis(nomeRepasse, nomeCadastro) {
-  const a = norm(nomeRepasse).split(' ').filter(Boolean);
-  const b = norm(nomeCadastro).split(' ').filter(Boolean);
-  if(a.length===0||b.length===0) return false;
-  // Primeiro e último nome devem bater
-  if(a[0]!==b[0]) return false;
-  if(a[a.length-1]!==b[b.length-1]) return false;
-  // Palavras do menor nome devem aparecer no maior (como iniciais ou palavras completas)
-  const menor=a.length<=b.length?a:b;
-  const maior=a.length<=b.length?b:a;
-  return menor.every(p=>maior.some(q=>q===p||q.startsWith(p[0]+'')&&p.length===1));
-}
-function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
-function parseData(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m1)return`${m1[3]}-${m1[2]}-${m1[1]}`;const m2=s.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
-function formatData(s){if(!s)return'—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;}
-function formatMes(ym){const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];const[y,m]=ym.split('-');return ms[parseInt(m)-1]+'/'+y;}
-function toast(msg,bg){const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg||'var(--accent)';t.style.color=(bg&&bg!=='var(--accent)')?'#fff':'#0d1117';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3400);}
-function statusBadge(s){const map={Pago:'pago',Pendente:'pendente',Glosado:'glosado',Aguardando:'aguardando'};return`<span class="status-badge status-${map[s]||'aguardando'}">${s}</span>`;}
-
 ['drop-csv','drop-pdf'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));el.addEventListener('drop',()=>el.classList.remove('drag-over'));});
 
 // ══════════════════════════════════════════════════════════
