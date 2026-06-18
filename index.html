@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EndoAudit — Sistema de Conferência de Exames</title>
-<script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof onGISLoad==='function')onGISLoad()"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="if(typeof onGISLoad==='function'){onGISLoad();}"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -740,16 +740,30 @@ let tokenClient = null;
 function iniciarLogin() {
   const btn = document.getElementById('btn-google-login');
   const status = document.getElementById('login-status');
-  btn.disabled = true;
-  status.textContent = 'Aguardando autorização do Google...';
 
   if (!tokenClient) {
-    status.textContent = 'Carregando biblioteca Google...';
-    // GIS still loading — retry after short delay
-    setTimeout(iniciarLogin, 800);
-    btn.disabled = false;
+    // GIS ainda não carregou — aguarda e tenta de novo
+    status.textContent = 'Carregando autenticação Google...';
+    btn.disabled = true;
+    let t = 0;
+    const wait = setInterval(() => {
+      t++;
+      if (tokenClient) {
+        clearInterval(wait);
+        btn.disabled = false;
+        status.textContent = '';
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+      } else if (t > 20) {
+        clearInterval(wait);
+        btn.disabled = false;
+        status.textContent = 'Erro: biblioteca Google não carregou. Recarregue a página.';
+      }
+    }, 300);
     return;
   }
+
+  btn.disabled = true;
+  status.textContent = 'Aguardando autorização do Google...';
   tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
@@ -2182,13 +2196,29 @@ function exportRelatorio(){
   toast('✓ Relatório exportado!');
 }
 
-// INIT — GIS carrega via script tag async, chama onGISLoad quando pronto
+// INIT — aguarda GIS carregar e inicializa
 window.addEventListener('load', () => {
+  // Tenta imediatamente
   if (typeof google !== 'undefined' && google.accounts) {
     onGISLoad();
+    return;
   }
+  // Polling: tenta a cada 200ms por até 10s
+  let tentativas = 0;
+  const intervalo = setInterval(() => {
+    tentativas++;
+    if (typeof google !== 'undefined' && google.accounts) {
+      clearInterval(intervalo);
+      onGISLoad();
+    } else if (tentativas > 50) {
+      clearInterval(intervalo);
+      document.getElementById('login-status').textContent =
+        'Erro ao carregar Google Auth. Verifique sua conexão e recarregue.';
+      document.getElementById('btn-google-login').disabled = false;
+    }
+  }, 200);
 });
-// Fallback: GIS chama este callback quando termina de carregar
+// Callback direto do script tag GIS
 function onload_gis() { onGISLoad(); }
 </script>
 </body>
