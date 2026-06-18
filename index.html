@@ -1394,16 +1394,15 @@ function handlePDF(event){
       const bytes=new Uint8Array(e.target.result);
       const raw=new TextDecoder('latin1').decode(bytes);
       let textoBruto='';
-      const parens=raw.match(/\(([^)]{1,200})\)/g)||[];
-      textoBruto=parens.map(p=>p.slice(1,-1)
-        .replace(/\\n/g,'\n').replace(/\\r/g,'\n')
-        .replace(/\\t/g,' ').replace(/\\\\/g,'\\')
-        .replace(/\\(/g,'(').replace(/\\)/g,')')
-      ).join('\n');
+      const pRgx=new RegExp('[\\(]([^)]{1,200})[\\)]','g');
+      let pm; const parens=[];
+      while((pm=pRgx.exec(raw))!==null) parens.push(pm[0]);
+      textoBruto=parens.map(p=>p.slice(1,-1)).join('\n');
       const btBlocks=raw.match(/BT[\s\S]*?ET/g)||[];
       btBlocks.forEach(block=>{
-        const parts=block.match(/\(([^)]+)\)/g)||[];
-        parts.forEach(p=>{ textoBruto+='\n'+p.slice(1,-1); });
+        const bRgx=new RegExp('[\\(]([^)]+)[\\)]','g');
+        let bm;
+        while((bm=bRgx.exec(block))!==null){ textoBruto+='\n'+bm[1]; }
       });
       const registros=parsePDFUnimed(textoBruto,file.name);
       if(!registros.length){
