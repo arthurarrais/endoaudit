@@ -1371,30 +1371,126 @@ function handleCSV(event){
 }
 
 function handlePDF(event){
-  const file=event.target.files[0];if(!file)return;
-  toast('🔍 Lendo PDF...','var(--outros)');
+  const file=event.target.files[0]; if(!file) return;
+  setSyncStatus('syncing','Lendo PDF...');
+  toast('🔍 Convertendo PDF da Unimed...','var(--outros)');
   const reader=new FileReader();
   reader.onload=e=>{
     try{
-      const raw=new TextDecoder('latin1').decode(new Uint8Array(e.target.result));
-      const parens=raw.match(/\(([^)]{1,120})\)/g)||[];
-      const text=parens.map(p=>p.slice(1,-1)).join(' ');
-      const allCodes=Object.keys(CODE_MAP).join('|');
-      const dateRgx=/(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/g;
-      const codRgx=new RegExp('\\b('+allCodes+')\\b','g');
-      const res=[];let m;
-      while((m=dateRgx.exec(text))!==null){
-        const data=parseData(m[1]);if(!data)continue;
-        const antes=text.slice(Math.max(0,m.index-150),m.index);
-        const nomeM=antes.match(/([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+(?:\s+[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+){1,4})\s*$/);
-        const codM=text.slice(m.index,m.index+100).match(codRgx);
-        if(nomeM) res.push({nome:nomeM[1].trim(),data,codigo:codM?codM[0]:null});
+      const bytes=new Uint8Array(e.target.result);
+      const raw=new TextDecoder('latin1').decode(bytes);
+      let textoBruto='';
+      const parens=raw.match(/\(([^)]{1,200})\)/g)||[];
+      textoBruto=parens.map(p=>p.slice(1,-1)
+        .replace(/\\n/g,'\n').replace(/\\r/g,'\n')
+        .replace(/\\t/g,' ').replace(/\\\\/g,'\\')
+        .replace(/\\(/g,'(').replace(/\\)/g,')')
+      ).join('\n');
+      const btBlocks=raw.match(/BT[\s\S]*?ET/g)||[];
+      btBlocks.forEach(block=>{
+        const parts=block.match(/\(([^)]+)\)/g)||[];
+        parts.forEach(p=>{ textoBruto+='\n'+p.slice(1,-1); });
+      });
+      const registros=parsePDFUnimed(textoBruto,file.name);
+      if(!registros.length){
+        document.getElementById('upload-resultado').style.display='';
+        document.getElementById('upload-meta').textContent=`PDF — ${file.name} — nenhum dado reconhecido`;
+        document.getElementById('upload-log').innerHTML=`
+          <span style="color:var(--pendente)">⚠ O PDF não pôde ser lido automaticamente.</span><br>
+          <span style="color:var(--text3)">Isso ocorre quando o PDF usa fontes codificadas.</span><br><br>
+          <strong style="color:var(--text)">Solução:</strong><br>
+          <span style="color:var(--text2)">Abra o PDF → Selecione tudo (Ctrl+A) → Copie → Cole no Google Sheets → Baixe como CSV → Faça upload do CSV aqui.</span>`;
+        setSyncStatus('ok','');
+        return;
       }
-      if(!res.length){document.getElementById('upload-resultado').style.display='';document.getElementById('upload-meta').textContent=`PDF — ${file.name} — nenhum dado reconhecido`;document.getElementById('upload-log').innerHTML='<span style="color:var(--pendente)">⚠ PDF pode estar em formato de imagem. Use CSV.</span>';return;}
-      cruzarDados(res,`PDF — ${file.name} — ${res.length} registros extraídos`);
-    }catch(err){toast('Erro PDF: '+err.message,'var(--glosado)');}
+      mostrarPreviaPDF(registros,file.name);
+      setSyncStatus('ok','PDF convertido');
+    }catch(err){
+      toast('Erro ao ler PDF: '+err.message,'var(--glosado)');
+      setSyncStatus('error','Erro no PDF');
+      console.error(err);
+    }
   };
   reader.readAsArrayBuffer(file);
+}
+
+function parsePDFUnimed(texto, nomeArq){
+  const registros=[];
+  const linhas=texto.split('\n').map(l=>l.trim()).filter(Boolean);
+  const rgxPaciente=/^(\d{4,6})\s+(\d{6,12})\s+(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}:\d{2}\s+[\d\.\-]+\s+(.+)$/;
+  const rgxServico=/^Servi[çc]os\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d\.,]+)\s+([\d,]+)\s*(.*)?$/;
+  let nomePendente='', dataPendente='';
+  for(let i=0;i<linhas.length;i++){
+    const linha=linhas[i];
+    const mP=linha.match(rgxPaciente);
+    if(mP){
+      nomePendente=mP[4].trim().toUpperCase();
+      const [d,m,y]=mP[3].split('/');
+      dataPendente=`${y}-${m}-${d}`;
+      continue;
+    }
+    const mS=linha.match(rgxServico);
+    if(mS&&nomePendente&&dataPendente){
+      const codigo  =mS[1];
+      const qtPaga  =parseFloat(mS[3].replace(',','.'));
+      const valor   =parseFloat(mS[4].replace(/\./g,'').replace(',','.'));
+      const msgGlosa=mS[6].trim();
+      const glosado =(qtPaga===0&&valor===0)||msgGlosa.length>0;
+      if(nomePendente!=='BENEF NAO CADASTRADO'){
+        registros.push({nome:nomePendente,data:dataPendente,codigo,glosado,msgGlosa});
+      }
+    }
+  }
+  return registros;
+}
+
+function mostrarPreviaPDF(registros, nomeArq){
+  const glosas=registros.filter(r=>r.glosado);
+  const normais=registros.filter(r=>!r.glosado);
+  const csvLinhas=['Beneficiario;Data;Codigo_Servico;Qt_Paga;Mensagem_Glosa;Glosado'];
+  registros.forEach(r=>{
+    csvLinhas.push(`"${r.nome}";"${r.data}";"${r.codigo}";"${r.glosado?'0':'1'}";"${r.msgGlosa||''}";"${r.glosado?'SIM':'NAO'}"`);
+  });
+  const csvBlob=new Blob(['\uFEFF'+csvLinhas.join('\n')],{type:'text/csv'});
+  const csvUrl=URL.createObjectURL(csvBlob);
+  const csvNome=nomeArq.replace(/\.pdf$/i,'')+'.csv';
+  window._pdfRegistros=registros;
+  document.getElementById('upload-resultado').style.display='';
+  document.getElementById('upload-meta').textContent=
+    `PDF convertido — ${nomeArq} — ${registros.length} registros · ${glosas.length} glosa${glosas.length!==1?'s':''}`;
+  document.getElementById('upload-log').innerHTML=`
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="cruzarComPDF(window._pdfRegistros)" style="width:auto;margin:0;padding:10px 20px">
+        ▶ Cruzar com exames cadastrados
+      </button>
+      <a href="${csvUrl}" download="${csvNome}" class="btn btn-secondary" style="text-decoration:none;padding:10px 16px;font-size:12px">
+        ⬇ Baixar CSV convertido
+      </a>
+    </div>
+    ${glosas.length?`
+    <div style="margin-bottom:16px;padding:12px;background:rgba(255,107,107,0.06);border:1px solid var(--glosado)33;border-radius:8px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--glosado);margin-bottom:8px">
+        ✕ ${glosas.length} glosa${glosas.length!==1?'s':''} detectada${glosas.length!==1?'s':''}
+      </div>
+      ${glosas.map(r=>`<div style="color:var(--glosado);margin-bottom:3px;font-size:12px">
+        ✕ ${r.nome} · ${formatData(r.data)} · <span class="tuss-chip">${r.codigo}</span>${r.msgGlosa?' — <span style="color:var(--text3)">'+r.msgGlosa+'</span>':''}
+      </div>`).join('')}
+    </div>`:''}
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">
+      ${normais.length} registros válidos — prévia (primeiros 10)
+    </div>
+    ${normais.slice(0,10).map(r=>`
+      <div style="color:var(--text2);margin-bottom:2px;font-size:11px">
+        ✓ ${r.nome} · ${formatData(r.data)} · <span class="tuss-chip">${r.codigo}</span>
+      </div>`).join('')}
+    ${normais.length>10?`<div style="color:var(--text3);font-size:11px;margin-top:6px">… e mais ${normais.length-10} registros</div>`:''}
+  `;
+}
+
+function cruzarComPDF(registros){
+  if(!registros||!registros.length){toast('Nenhum registro para cruzar','var(--pendente)');return;}
+  const repasse=registros.map(r=>({nome:r.nome,data:r.data,codigo:r.codigo,glosado:r.glosado}));
+  cruzarDados(repasse,`PDF Unimed — ${repasse.length} registros · ${registros.filter(r=>r.glosado).length} glosas`);
 }
 
 // EXPORT CSV
